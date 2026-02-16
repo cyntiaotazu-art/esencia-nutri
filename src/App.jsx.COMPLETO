@@ -1,0 +1,1844 @@
+================================================================================
+                    APP.JSX COMPLETO - ESENCIA NUTRI PRO
+================================================================================
+
+INSTRUCCIONES:
+1. Abre tu proyecto en un editor de código
+2. Ve al archivo: src/App.jsx
+3. BORRA TODO el contenido actual
+4. COPIA Y PEGA todo el código que está debajo de esta línea
+5. GUARDA el archivo
+6. Sube a GitHub
+7. ¡Vercel lo compilará automáticamente!
+
+================================================================================
+                        COMIENZA EL CÓDIGO AQUÍ ↓
+================================================================================
+
+import React, { useState, useEffect } from 'react';
+import { Plus, Trash2, Edit2, Package, ChefHat, ShoppingBag, DollarSign, Save, X, Calculator, TrendingUp, Download, Upload, Search, AlertTriangle, BarChart3, Users, Settings, FileText, History, RefreshCw } from 'lucide-react';
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell } from 'recharts';
+import { Modal, Alert, AlertDescription, Button, Card, Input, Select, Badge } from './components/UI';
+import { convertirUnidad, unidadesCompatibles, todasLasUnidades, formatearFecha, formatearMoneda, getStockColor, generarId, descargarJSON, leerJSON } from './utils/helpers';
+import { generarPDFVentas, generarPDFInventario, generarPDFProductos } from './utils/pdfGenerator';
+
+const theme = {
+  primary: '#5A7C43', primaryDark: '#3D5A2C', secondary: '#C8E6C9', accent: '#9DC88D',
+  background: '#F5F9F3', card: '#FFFFFF', text: '#2D3E1F', textLight: '#5A7C43',
+  border: '#D4E9D7', hover: '#E8F5E9', success: '#81C784', warning: '#FFB74D', danger: '#E57373'
+};
+
+const COLORS = ['#5A7C43', '#9DC88D', '#81C784', '#C8E6C9', '#FFB74D', '#E57373'];
+
+// ===== COMPONENTE_1_PACKAGING.jsx =====
+// Copia este componente completo en App.jsx (después de InsumosView)
+
+const PackagingView = ({ packaging, setPackaging, showModal, setShowModal, editingItem, setEditingItem }) => {
+  const [formData, setFormData] = useState({
+    nombre: '',
+    precio: '',
+    stock: '',
+    unidadStock: 'unidad',
+    fechaActualizacion: new Date().toISOString().split('T')[0]
+  });
+
+  const handleSubmit = e => {
+    e.preventDefault();
+    const newPackaging = {
+      ...formData,
+      id: editingItem?.id || generarId(),
+      precio: parseFloat(formData.precio),
+      stock: parseFloat(formData.stock)
+    };
+    setPackaging(editingItem ? packaging.map(p => p.id === editingItem.id ? newPackaging : p) : [...packaging, newPackaging]);
+    resetForm();
+  };
+
+  const resetForm = () => {
+    setFormData({ 
+      nombre: '', 
+      precio: '', 
+      stock: '', 
+      unidadStock: 'unidad', 
+      fechaActualizacion: new Date().toISOString().split('T')[0] 
+    });
+    setShowModal(false);
+    setEditingItem(null);
+  };
+
+  const alertas = packaging.filter(p => p.stock < 10);
+
+  return (
+    <div className="fade-in">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
+        <div>
+          <h2 style={{ fontSize: '1.75rem', fontWeight: '700', color: theme.text, margin: '0 0 0.5rem 0' }}>
+            Gestión de Packaging
+          </h2>
+          <p style={{ color: theme.textLight, margin: 0 }}>Administra materiales de empaque</p>
+        </div>
+        <Button icon={Plus} onClick={() => setShowModal(true)}>Nuevo Packaging</Button>
+      </div>
+
+      {alertas.length > 0 && (
+        <Alert type="warning" style={{ marginBottom: '1.5rem' }}>
+          <AlertDescription>
+            <strong>{alertas.length} packaging(s)</strong> con stock bajo (menos de 10 unidades)
+          </AlertDescription>
+        </Alert>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem' }}>
+        {packaging.map(item => (
+          <Card key={item.id}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+              <h3 style={{ fontSize: '1.2rem', fontWeight: '600', color: theme.text, margin: 0 }}>
+                {item.nombre}
+              </h3>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <Button 
+                  size="sm" 
+                  variant="secondary" 
+                  icon={Edit2} 
+                  onClick={() => { setFormData(item); setEditingItem(item); setShowModal(true); }}
+                  style={{ padding: '0.5rem', minWidth: 'auto' }}
+                />
+                <Button 
+                  size="sm" 
+                  variant="danger" 
+                  icon={Trash2} 
+                  onClick={() => { if (confirm('¿Eliminar este packaging?')) setPackaging(packaging.filter(p => p.id !== item.id)); }}
+                  style={{ padding: '0.5rem', minWidth: 'auto' }}
+                />
+              </div>
+            </div>
+            <div style={{ display: 'grid', gap: '0.75rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem', backgroundColor: theme.background, borderRadius: '8px' }}>
+                <span style={{ color: theme.textLight }}>Precio:</span>
+                <span style={{ fontSize: '1.25rem', fontWeight: '700', color: theme.primary }}>
+                  {formatearMoneda(item.precio)}
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem', backgroundColor: theme.background, borderRadius: '8px' }}>
+                <span style={{ color: theme.textLight }}>Stock:</span>
+                <span style={{ fontWeight: '600', color: getStockColor(item.stock, theme) }}>
+                  {item.stock} {item.unidadStock}
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem', backgroundColor: theme.background, borderRadius: '8px' }}>
+                <span style={{ color: theme.textLight }}>Actualizado:</span>
+                <span style={{ fontWeight: '600', color: theme.text, fontSize: '0.85rem' }}>
+                  {formatearFecha(item.fechaActualizacion)}
+                </span>
+              </div>
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      {packaging.length === 0 && (
+        <Card style={{ textAlign: 'center', padding: '4rem 2rem' }}>
+          <Package size={48} color={theme.textLight} style={{ marginBottom: '1rem', marginLeft: 'auto', marginRight: 'auto' }} />
+          <p style={{ fontSize: '1.1rem', color: theme.textLight }}>
+            No hay packaging registrado. ¡Agrega tu primer material de empaque!
+          </p>
+        </Card>
+      )}
+
+      {showModal && (
+        <Modal onClose={resetForm} title={editingItem ? 'Editar Packaging' : 'Nuevo Packaging'}>
+          <form onSubmit={handleSubmit} style={{ display: 'grid', gap: '1rem' }}>
+            <Input 
+              label="Nombre del Packaging" 
+              required 
+              value={formData.nombre}
+              onChange={e => setFormData({ ...formData, nombre: e.target.value })}
+              placeholder="Ej: Bolsa de papel, Caja, Envase..."
+            />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <Input 
+                label="Precio" 
+                type="number" 
+                step="0.01" 
+                required 
+                value={formData.precio}
+                onChange={e => setFormData({ ...formData, precio: e.target.value })}
+              />
+              <Input 
+                label="Fecha Actualización" 
+                type="date" 
+                required 
+                value={formData.fechaActualizacion}
+                onChange={e => setFormData({ ...formData, fechaActualizacion: e.target.value })}
+              />
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1rem' }}>
+              <Input 
+                label="Stock" 
+                type="number" 
+                step="0.01" 
+                required 
+                value={formData.stock}
+                onChange={e => setFormData({ ...formData, stock: e.target.value })}
+              />
+              <Select 
+                label="Unidad" 
+                required 
+                value={formData.unidadStock}
+                onChange={e => setFormData({ ...formData, unidadStock: e.target.value })}
+              >
+                {todasLasUnidades.map(u => <option key={u} value={u}>{u}</option>)}
+              </Select>
+            </div>
+            <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
+              <Button variant="outline" onClick={resetForm} fullWidth>Cancelar</Button>
+              <Button type="submit" icon={Save} fullWidth>
+                {editingItem ? 'Actualizar' : 'Guardar'}
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+    </div>
+  );
+};
+
+// ===== COMPONENTE_2_RECETAS.jsx =====
+// Copia este componente completo en App.jsx (después de PackagingView)
+
+const RecetasView = ({ recetas, setRecetas, insumos, showModal, setShowModal, editingItem, setEditingItem }) => {
+  const [formData, setFormData] = useState({ 
+    nombre: '', 
+    ingredientes: [],
+    fechaCreacion: new Date().toISOString().split('T')[0]
+  });
+  const [selectedInsumo, setSelectedInsumo] = useState('');
+  const [cantidadInsumo, setCantidadInsumo] = useState('');
+  const [unidadInsumo, setUnidadInsumo] = useState('gramo');
+  const [selectedReceta, setSelectedReceta] = useState('');
+
+  const calcularCostoReceta = (receta) => {
+    let costoTotal = 0;
+    receta.ingredientes.forEach(ing => {
+      if (ing.tipo === 'insumo') {
+        costoTotal += ing.cantidad * ing.precioUnitario;
+      } else if (ing.tipo === 'receta') {
+        const recetaRef = recetas.find(r => r.id === ing.idReferencia);
+        if (recetaRef) costoTotal += calcularCostoReceta(recetaRef);
+      }
+    });
+    return costoTotal;
+  };
+
+  const handleAddInsumo = () => {
+    if (selectedInsumo && cantidadInsumo) {
+      const insumo = insumos.find(i => i.id === selectedInsumo);
+      
+      // CONVERSIÓN DE UNIDADES AQUÍ
+      const cantidadConvertida = convertirUnidad(
+        parseFloat(cantidadInsumo),
+        unidadInsumo,
+        insumo.unidad
+      );
+      
+      const precioUnitario = insumo.precio / insumo.cantidadPorEnvase;
+      
+      setFormData({
+        ...formData,
+        ingredientes: [...formData.ingredientes, {
+          tipo: 'insumo',
+          id: generarId(),
+          idInsumo: insumo.id,
+          nombre: insumo.nombre,
+          cantidad: cantidadConvertida,
+          cantidadOriginal: parseFloat(cantidadInsumo),
+          unidadOriginal: unidadInsumo,
+          unidad: insumo.unidad,
+          precioUnitario
+        }]
+      });
+      setSelectedInsumo('');
+      setCantidadInsumo('');
+      setUnidadInsumo('gramo');
+    }
+  };
+
+  const handleAddReceta = () => {
+    if (selectedReceta) {
+      const receta = recetas.find(r => r.id === selectedReceta);
+      const ingredientesReceta = receta.ingredientes.map(ing => ({
+        ...ing,
+        id: generarId(),
+        tipo: 'receta',
+        idReferencia: receta.id,
+        nombreReceta: receta.nombre
+      }));
+      setFormData({
+        ...formData,
+        ingredientes: [...formData.ingredientes, ...ingredientesReceta]
+      });
+      setSelectedReceta('');
+    }
+  };
+
+  const handleSubmit = e => {
+    e.preventDefault();
+    const costo = calcularCostoReceta(formData);
+    const newReceta = { 
+      ...formData, 
+      id: editingItem?.id || generarId(), 
+      costo 
+    };
+    setRecetas(editingItem ? recetas.map(r => r.id === editingItem.id ? newReceta : r) : [...recetas, newReceta]);
+    resetForm();
+  };
+
+  const resetForm = () => {
+    setFormData({ nombre: '', ingredientes: [], fechaCreacion: new Date().toISOString().split('T')[0] });
+    setShowModal(false);
+    setEditingItem(null);
+  };
+
+  // Obtener unidades compatibles para el insumo seleccionado
+  const getUnidadesDisponibles = () => {
+    if (!selectedInsumo) return todasLasUnidades;
+    const insumo = insumos.find(i => i.id === selectedInsumo);
+    return insumo ? unidadesCompatibles[insumo.unidad] || [insumo.unidad] : todasLasUnidades;
+  };
+
+  return (
+    <div className="fade-in">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
+        <div>
+          <h2 style={{ fontSize: '1.75rem', fontWeight: '700', color: theme.text, margin: '0 0 0.5rem 0' }}>
+            Gestión de Recetas
+          </h2>
+          <p style={{ color: theme.textLight, margin: 0 }}>
+            Crea recetas con cálculo automático de costos y conversión de unidades
+          </p>
+        </div>
+        <Button 
+          icon={Plus} 
+          onClick={() => setShowModal(true)} 
+          disabled={insumos.length === 0}
+        >
+          Nueva Receta
+        </Button>
+      </div>
+
+      {insumos.length === 0 && (
+        <Alert type="warning" style={{ marginBottom: '2rem' }}>
+          <AlertDescription>
+            Debes agregar insumos antes de crear recetas.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '1.5rem' }}>
+        {recetas.map(receta => {
+          const costo = calcularCostoReceta(receta);
+          return (
+            <Card key={receta.id}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                <h3 style={{ fontSize: '1.2rem', fontWeight: '600', color: theme.text, margin: 0 }}>
+                  {receta.nombre}
+                </h3>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <Button 
+                    size="sm" 
+                    variant="secondary" 
+                    icon={Edit2} 
+                    onClick={() => { setFormData(receta); setEditingItem(receta); setShowModal(true); }}
+                    style={{ padding: '0.5rem', minWidth: 'auto' }}
+                  />
+                  <Button 
+                    size="sm" 
+                    variant="danger" 
+                    icon={Trash2} 
+                    onClick={() => {
+                      if (confirm('¿Eliminar esta receta?')) setRecetas(recetas.filter(r => r.id !== receta.id));
+                    }}
+                    style={{ padding: '0.5rem', minWidth: 'auto' }}
+                  />
+                </div>
+              </div>
+              <div style={{ backgroundColor: theme.background, borderRadius: '12px', padding: '1rem', marginBottom: '1rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                  <span style={{ fontSize: '0.9rem', color: theme.textLight, fontWeight: '500' }}>
+                    Costo de Producción
+                  </span>
+                  <span style={{ fontSize: '1.5rem', fontWeight: '700', color: theme.primary }}>
+                    {formatearMoneda(costo)}
+                  </span>
+                </div>
+                {receta.fechaCreacion && (
+                  <div style={{ fontSize: '0.8rem', color: theme.textLight }}>
+                    Creado: {formatearFecha(receta.fechaCreacion)}
+                  </div>
+                )}
+              </div>
+              <div>
+                <h4 style={{ fontSize: '0.9rem', fontWeight: '600', color: theme.text, marginBottom: '0.75rem' }}>
+                  Ingredientes ({receta.ingredientes.length})
+                </h4>
+                <div style={{ display: 'grid', gap: '0.5rem', maxHeight: '200px', overflowY: 'auto' }}>
+                  {receta.ingredientes.map((ing, idx) => (
+                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem', backgroundColor: theme.hover, borderRadius: '6px', fontSize: '0.85rem' }}>
+                      <span style={{ color: theme.text }}>
+                        {ing.nombre}
+                        {ing.tipo === 'receta' && ing.nombreReceta && (
+                          <Badge variant="info" style={{ marginLeft: '0.5rem', fontSize: '0.7rem' }}>
+                            de {ing.nombreReceta}
+                          </Badge>
+                        )}
+                      </span>
+                      <span style={{ fontWeight: '600', color: theme.textLight }}>
+                        {ing.cantidadOriginal || ing.cantidad} {ing.unidadOriginal || ing.unidad}
+                        {ing.cantidadOriginal && ing.unidadOriginal !== ing.unidad && (
+                          <span style={{ fontSize: '0.75rem', color: theme.textLight, marginLeft: '0.25rem' }}>
+                            (≈{ing.cantidad.toFixed(2)} {ing.unidad})
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+
+      {recetas.length === 0 && insumos.length > 0 && (
+        <Card style={{ textAlign: 'center', padding: '4rem 2rem' }}>
+          <ChefHat size={48} color={theme.textLight} style={{ marginBottom: '1rem', marginLeft: 'auto', marginRight: 'auto' }} />
+          <p style={{ fontSize: '1.1rem', color: theme.textLight }}>
+            No hay recetas registradas. ¡Crea tu primera receta!
+          </p>
+        </Card>
+      )}
+
+      {showModal && (
+        <Modal onClose={resetForm} title={editingItem ? 'Editar Receta' : 'Nueva Receta'} large>
+          <form onSubmit={handleSubmit} style={{ display: 'grid', gap: '1rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <Input 
+                label="Nombre de la Receta" 
+                required 
+                value={formData.nombre}
+                onChange={e => setFormData({ ...formData, nombre: e.target.value })}
+              />
+              <Input 
+                label="Fecha de Creación" 
+                type="date" 
+                required 
+                value={formData.fechaCreacion}
+                onChange={e => setFormData({ ...formData, fechaCreacion: e.target.value })}
+              />
+            </div>
+            
+            <div style={{ backgroundColor: theme.background, borderRadius: '12px', padding: '1rem' }}>
+              <h4 style={{ fontSize: '1rem', fontWeight: '600', color: theme.text, marginBottom: '0.75rem' }}>
+                ➕ Agregar Insumos
+              </h4>
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr auto', gap: '0.5rem' }}>
+                <Select 
+                  value={selectedInsumo} 
+                  onChange={e => {
+                    setSelectedInsumo(e.target.value);
+                    const insumo = insumos.find(i => i.id === e.target.value);
+                    if (insumo) setUnidadInsumo(insumo.unidad);
+                  }}
+                  style={{ fontSize: '0.9rem' }}
+                >
+                  <option value="">Seleccionar insumo...</option>
+                  {insumos.map(insumo => (
+                    <option key={insumo.id} value={insumo.id}>
+                      {insumo.nombre} ({insumo.unidad})
+                    </option>
+                  ))}
+                </Select>
+                <Input 
+                  type="number" 
+                  step="0.01" 
+                  placeholder="Cantidad" 
+                  value={cantidadInsumo}
+                  onChange={e => setCantidadInsumo(e.target.value)}
+                  style={{ fontSize: '0.9rem' }}
+                />
+                <Select 
+                  value={unidadInsumo}
+                  onChange={e => setUnidadInsumo(e.target.value)}
+                  disabled={!selectedInsumo}
+                  style={{ fontSize: '0.9rem' }}
+                >
+                  {getUnidadesDisponibles().map(u => (
+                    <option key={u} value={u}>{u}</option>
+                  ))}
+                </Select>
+                <Button 
+                  type="button"
+                  size="sm"
+                  onClick={handleAddInsumo} 
+                  disabled={!selectedInsumo || !cantidadInsumo}
+                  icon={Plus}
+                  style={{ padding: '0.75rem 1rem', minWidth: 'auto' }}
+                />
+              </div>
+              {selectedInsumo && selectedInsumo !== '' && (
+                <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: theme.textLight }}>
+                  💡 Tip: Puedes usar diferentes unidades. La conversión es automática.
+                </div>
+              )}
+            </div>
+
+            {recetas.length > 0 && (
+              <div style={{ backgroundColor: theme.background, borderRadius: '12px', padding: '1rem' }}>
+                <h4 style={{ fontSize: '1rem', fontWeight: '600', color: theme.text, marginBottom: '0.75rem' }}>
+                  📋 Incluir Receta Existente
+                </h4>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '0.5rem' }}>
+                  <Select 
+                    value={selectedReceta} 
+                    onChange={e => setSelectedReceta(e.target.value)}
+                    style={{ fontSize: '0.9rem' }}
+                  >
+                    <option value="">Seleccionar receta...</option>
+                    {recetas.filter(r => !editingItem || r.id !== editingItem.id).map(receta => (
+                      <option key={receta.id} value={receta.id}>{receta.nombre}</option>
+                    ))}
+                  </Select>
+                  <Button 
+                    type="button"
+                    size="sm"
+                    onClick={handleAddReceta} 
+                    disabled={!selectedReceta}
+                    icon={Plus}
+                    style={{ padding: '0.75rem 1rem' }}
+                  />
+                </div>
+                <p style={{ fontSize: '0.85rem', color: theme.textLight, marginTop: '0.5rem', marginBottom: 0 }}>
+                  Se agregarán todos los ingredientes de la receta seleccionada
+                </p>
+              </div>
+            )}
+
+            {formData.ingredientes.length > 0 && (
+              <>
+                <div>
+                  <h4 style={{ fontSize: '1rem', fontWeight: '600', color: theme.text, marginBottom: '0.5rem' }}>
+                    Ingredientes Agregados ({formData.ingredientes.length})
+                  </h4>
+                  <div style={{ display: 'grid', gap: '0.5rem', maxHeight: '250px', overflowY: 'auto', padding: '0.5rem', backgroundColor: theme.background, borderRadius: '8px' }}>
+                    {formData.ingredientes.map((ing, idx) => (
+                      <div key={ing.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', backgroundColor: 'white', borderRadius: '8px', border: `1px solid ${theme.border}` }}>
+                        <div style={{ flex: 1 }}>
+                          <span style={{ fontWeight: '600', color: theme.text }}>{ing.nombre}</span>
+                          {ing.tipo === 'receta' && ing.nombreReceta && (
+                            <Badge variant="info" style={{ marginLeft: '0.5rem', fontSize: '0.75rem' }}>
+                              de {ing.nombreReceta}
+                            </Badge>
+                          )}
+                          <div style={{ fontSize: '0.85rem', color: theme.textLight, marginTop: '0.25rem' }}>
+                            {ing.cantidadOriginal || ing.cantidad} {ing.unidadOriginal || ing.unidad}
+                            {ing.precioUnitario && (
+                              <> × {formatearMoneda(ing.precioUnitario)} = {formatearMoneda(ing.cantidad * ing.precioUnitario)}</>
+                            )}
+                          </div>
+                        </div>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="danger"
+                          icon={Trash2}
+                          onClick={() => setFormData({
+                            ...formData,
+                            ingredientes: formData.ingredientes.filter((_, i) => i !== idx)
+                          })}
+                          style={{ padding: '0.5rem', minWidth: 'auto', marginLeft: '0.5rem' }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div style={{ backgroundColor: theme.secondary, borderRadius: '12px', padding: '1rem', border: `2px solid ${theme.primary}` }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                    <Calculator size={20} color={theme.text} />
+                    <h4 style={{ fontSize: '1rem', fontWeight: '600', color: theme.text, margin: 0 }}>
+                      Costo de Producción
+                    </h4>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: theme.textLight, fontSize: '0.95rem' }}>Costo total de la receta:</span>
+                    <span style={{ fontSize: '1.75rem', fontWeight: '700', color: theme.primary }}>
+                      {formatearMoneda(calcularCostoReceta(formData))}
+                    </span>
+                  </div>
+                </div>
+              </>
+            )}
+
+            <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
+              <Button variant="outline" onClick={resetForm} fullWidth>Cancelar</Button>
+              <Button 
+                type="submit" 
+                icon={Save} 
+                fullWidth
+                disabled={formData.ingredientes.length === 0}
+              >
+                {editingItem ? 'Actualizar' : 'Guardar'} Receta
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+    </div>
+  );
+};
+
+// ===== COMPONENTE_3_VENTAS.jsx =====
+// Copia este componente completo en App.jsx (después de RecetasView)
+
+const VentasView = ({ recetas, packaging, insumos }) => {
+  const [productos, setProductos] = useState([]);
+
+  const calcularCostoReceta = (receta) => {
+    let costoTotal = 0;
+    receta.ingredientes.forEach(ing => {
+      if (ing.tipo === 'insumo') {
+        costoTotal += ing.cantidad * ing.precioUnitario;
+      } else if (ing.tipo === 'receta') {
+        const recetaRef = recetas.find(r => r.id === ing.idReferencia);
+        if (recetaRef) costoTotal += calcularCostoReceta(recetaRef);
+      }
+    });
+    return costoTotal;
+  };
+
+  const agregarProducto = (receta) => {
+    const costoReceta = calcularCostoReceta(receta);
+    const nuevoProducto = {
+      id: generarId(),
+      recetaId: receta.id,
+      nombreReceta: receta.nombre,
+      costoReceta,
+      packagingId: '',
+      cantidadPackaging: 1,
+      costoPackaging: 0,
+      porcentajeManoObra: 10,
+      porcentajeServicios: 5,
+      porcentajeDesechables: 3,
+      precioVenta: 0
+    };
+    setProductos([...productos, nuevoProducto]);
+  };
+
+  const actualizarProducto = (id, campo, valor) => {
+    setProductos(productos.map(p => {
+      if (p.id === id) {
+        const updated = { ...p, [campo]: valor };
+        
+        if (campo === 'packagingId' || campo === 'cantidadPackaging') {
+          if (updated.packagingId) {
+            const pack = packaging.find(pk => pk.id === updated.packagingId);
+            updated.costoPackaging = pack ? (pack.precio * updated.cantidadPackaging) : 0;
+          } else {
+            updated.costoPackaging = 0;
+          }
+        }
+        
+        return updated;
+      }
+      return p;
+    }));
+  };
+
+  const eliminarProducto = (id) => {
+    setProductos(productos.filter(p => p.id !== id));
+  };
+
+  const calcularTotales = (producto) => {
+    const baseRecetaPackaging = producto.costoReceta + producto.costoPackaging;
+    const costoManoObra = baseRecetaPackaging * (producto.porcentajeManoObra / 100);
+    const costoServicios = baseRecetaPackaging * (producto.porcentajeServicios / 100);
+    const costoDesechables = baseRecetaPackaging * (producto.porcentajeDesechables / 100);
+    const costoTotal = baseRecetaPackaging + costoManoObra + costoServicios + costoDesechables;
+    const ganancia = producto.precioVenta - costoTotal;
+    const margen = producto.precioVenta > 0 ? (ganancia / producto.precioVenta * 100) : 0;
+    
+    return {
+      baseRecetaPackaging,
+      costoManoObra,
+      costoServicios,
+      costoDesechables,
+      costoTotal,
+      ganancia,
+      margen
+    };
+  };
+
+  return (
+    <div className="fade-in">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
+        <div>
+          <h2 style={{ fontSize: '1.75rem', fontWeight: '700', color: theme.text, margin: '0 0 0.5rem 0' }}>
+            Cálculo de Precios de Venta
+          </h2>
+          <p style={{ color: theme.textLight, margin: 0 }}>
+            Calcula precios con todos los costos incluidos
+          </p>
+        </div>
+      </div>
+
+      {recetas.length === 0 ? (
+        <Alert type="warning">
+          <AlertDescription>
+            Debes crear recetas antes de configurar precios de venta.
+          </AlertDescription>
+        </Alert>
+      ) : (
+        <>
+          <div style={{ marginBottom: '2rem', backgroundColor: theme.card, borderRadius: '12px', padding: '1.5rem', border: `2px solid ${theme.border}` }}>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: '600', color: theme.text, marginBottom: '1rem' }}>
+              Selecciona una receta para calcular precio
+            </h3>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
+              {recetas.map(receta => (
+                <Button
+                  key={receta.id}
+                  variant="outline"
+                  onClick={() => agregarProducto(receta)}
+                  icon={Plus}
+                  style={{ fontSize: '0.9rem' }}
+                >
+                  {receta.nombre}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gap: '1.5rem' }}>
+            {productos.map(producto => {
+              const totales = calcularTotales(producto);
+              return (
+                <Card key={producto.id}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+                    <h3 style={{ fontSize: '1.3rem', fontWeight: '700', color: theme.text, margin: 0 }}>
+                      {producto.nombreReceta}
+                    </h3>
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      icon={Trash2}
+                      onClick={() => eliminarProducto(producto.id)}
+                      style={{ padding: '0.5rem', minWidth: 'auto' }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'grid', gap: '1rem' }}>
+                    {/* Costos Base */}
+                    <div style={{ backgroundColor: theme.background, borderRadius: '12px', padding: '1.25rem' }}>
+                      <h4 style={{ fontSize: '1rem', fontWeight: '600', color: theme.text, marginBottom: '1rem' }}>
+                        💰 Costos Base
+                      </h4>
+                      <div style={{ display: 'grid', gap: '0.75rem', fontSize: '0.95rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ color: theme.textLight }}>Costo de la receta:</span>
+                          <span style={{ fontWeight: '600', color: theme.text }}>
+                            {formatearMoneda(producto.costoReceta)}
+                          </span>
+                        </div>
+                        
+                        <div style={{ paddingTop: '0.75rem', borderTop: `1px solid ${theme.border}` }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '0.75rem', marginBottom: '0.5rem' }}>
+                            <Select
+                              label="Packaging"
+                              value={producto.packagingId}
+                              onChange={e => actualizarProducto(producto.id, 'packagingId', e.target.value)}
+                              style={{ fontSize: '0.9rem' }}
+                            >
+                              <option value="">Ninguno ($0)</option>
+                              {packaging.map(pack => (
+                                <option key={pack.id} value={pack.id}>
+                                  {pack.nombre} ({formatearMoneda(pack.precio)})
+                                </option>
+                              ))}
+                            </Select>
+                            <Input
+                              label="Cantidad"
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={producto.cantidadPackaging}
+                              onChange={e => actualizarProducto(producto.id, 'cantidadPackaging', parseFloat(e.target.value) || 1)}
+                              disabled={!producto.packagingId}
+                              style={{ fontSize: '0.9rem' }}
+                            />
+                            <div>
+                              <label style={{ display: 'block', fontSize: '0.85rem', color: theme.textLight, marginBottom: '0.5rem' }}>
+                                Costo
+                              </label>
+                              <div style={{ padding: '0.75rem', backgroundColor: theme.secondary, borderRadius: '6px', fontWeight: '600', textAlign: 'center' }}>
+                                {formatearMoneda(producto.costoPackaging)}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Costos Adicionales */}
+                    <div style={{ backgroundColor: theme.background, borderRadius: '12px', padding: '1.25rem' }}>
+                      <h4 style={{ fontSize: '1rem', fontWeight: '600', color: theme.text, marginBottom: '1rem' }}>
+                        📊 Costos Adicionales (% sobre Receta + Packaging)
+                      </h4>
+                      <div style={{ display: 'grid', gap: '0.75rem' }}>
+                        {[
+                          { key: 'porcentajeManoObra', label: 'Mano de Obra', costo: totales.costoManoObra },
+                          { key: 'porcentajeServicios', label: 'Servicios', costo: totales.costoServicios },
+                          { key: 'porcentajeDesechables', label: 'Desechables', costo: totales.costoDesechables }
+                        ].map(item => (
+                          <div key={item.key} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '0.75rem', alignItems: 'center' }}>
+                            <span style={{ color: theme.textLight, fontSize: '0.9rem' }}>{item.label}:</span>
+                            <Input
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              value={producto[item.key]}
+                              onChange={e => actualizarProducto(producto.id, item.key, parseFloat(e.target.value) || 0)}
+                              style={{ padding: '0.5rem', fontSize: '0.9rem' }}
+                            />
+                            <div style={{ padding: '0.5rem', backgroundColor: theme.secondary, borderRadius: '6px', fontWeight: '600', textAlign: 'center', fontSize: '0.9rem' }}>
+                              {formatearMoneda(item.costo)}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Totales y Precio de Venta */}
+                    <div style={{ backgroundColor: theme.secondary, borderRadius: '12px', padding: '1.5rem', border: `2px solid ${theme.primary}` }}>
+                      <div style={{ display: 'grid', gap: '1rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '1rem', borderBottom: `2px solid ${theme.primary}` }}>
+                          <span style={{ fontSize: '1.1rem', fontWeight: '600', color: theme.text }}>
+                            COSTO TOTAL:
+                          </span>
+                          <span style={{ fontSize: '2rem', fontWeight: '700', color: theme.primary }}>
+                            {formatearMoneda(totales.costoTotal)}
+                          </span>
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.95rem', fontWeight: '600', color: theme.text, marginBottom: '0.75rem' }}>
+                            💵 Precio de Venta:
+                          </label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={producto.precioVenta}
+                            onChange={e => actualizarProducto(producto.id, 'precioVenta', parseFloat(e.target.value) || 0)}
+                            placeholder="0.00"
+                            style={{ fontSize: '1.25rem', fontWeight: '700', textAlign: 'center' }}
+                          />
+                        </div>
+                        {producto.precioVenta > 0 && (
+                          <div style={{ paddingTop: '1rem', borderTop: `1px solid ${theme.primary}` }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                              <span style={{ fontSize: '1rem', fontWeight: '600', color: totales.ganancia >= 0 ? theme.primary : theme.danger }}>
+                                {totales.ganancia >= 0 ? '✅ GANANCIA:' : '⚠️ PÉRDIDA:'}
+                              </span>
+                              <span style={{ fontSize: '1.5rem', fontWeight: '700', color: totales.ganancia >= 0 ? theme.primary : theme.danger }}>
+                                {formatearMoneda(Math.abs(totales.ganancia))}
+                              </span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <span style={{ fontSize: '0.9rem', color: theme.textLight }}>Margen de ganancia:</span>
+                              <Badge variant={totales.margen >= 20 ? 'success' : totales.margen >= 10 ? 'warning' : 'danger'}>
+                                {totales.margen.toFixed(1)}%
+                              </Badge>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+
+          {productos.length === 0 && (
+            <Card style={{ textAlign: 'center', padding: '4rem 2rem' }}>
+              <DollarSign size={48} color={theme.textLight} style={{ marginBottom: '1rem', marginLeft: 'auto', marginRight: 'auto' }} />
+              <p style={{ fontSize: '1.1rem', color: theme.textLight }}>
+                Selecciona una receta arriba para comenzar a calcular precios
+              </p>
+            </Card>
+          )}
+        </>
+      )}
+    </div>
+  );
+};
+
+// ===== COMPONENTE_4_HISTORIAL.jsx =====
+// Copia este componente completo en App.jsx (después de VentasView)
+
+const HistorialView = ({ ventasRealizadas, setVentasRealizadas, recetas, insumos, setInsumos, packaging, setPackaging }) => {
+  const [showModal, setShowModal] = useState(false);
+  const [formData, setFormData] = useState({
+    cliente: '',
+    recetaId: '',
+    cantidad: 1,
+    precioVenta: 0,
+    packagingId: '',
+    cantidadPackaging: 1,
+    fecha: new Date().toISOString().split('T')[0]
+  });
+  const [filtroCliente, setFiltroCliente] = useState('');
+  const [filtroProducto, setFiltroProducto] = useState('');
+
+  const calcularCostoReceta = (receta) => {
+    let costoTotal = 0;
+    receta.ingredientes.forEach(ing => {
+      if (ing.tipo === 'insumo') {
+        costoTotal += ing.cantidad * ing.precioUnitario;
+      } else if (ing.tipo === 'receta') {
+        const recetaRef = recetas.find(r => r.id === ing.idReferencia);
+        if (recetaRef) costoTotal += calcularCostoReceta(recetaRef);
+      }
+    });
+    return costoTotal;
+  };
+
+  const registrarVenta = e => {
+    e.preventDefault();
+    const receta = recetas.find(r => r.id === formData.recetaId);
+    const costoReceta = calcularCostoReceta(receta);
+    
+    // Calcular costo de packaging
+    let costoPackaging = 0;
+    if (formData.packagingId) {
+      const pack = packaging.find(p => p.id === formData.packagingId);
+      if (pack) {
+        costoPackaging = pack.precio * formData.cantidadPackaging;
+      }
+    }
+    
+    const costoTotal = (costoReceta + costoPackaging) * formData.cantidad;
+    const ganancia = formData.precioVenta - costoTotal;
+    const margenGanancia = formData.precioVenta > 0 ? (ganancia / formData.precioVenta * 100) : 0;
+    
+    // DESCUENTO AUTOMÁTICO DE STOCK
+    const nuevosInsumos = [...insumos];
+    const nuevoPackaging = [...packaging];
+    
+    // Descontar insumos de la receta
+    receta.ingredientes.forEach(ing => {
+      if (ing.tipo === 'insumo') {
+        const insumoIndex = nuevosInsumos.findIndex(i => i.id === ing.idInsumo);
+        if (insumoIndex !== -1) {
+          // Convertir cantidad si es necesario
+          const cantidadADescontar = convertirUnidad(
+            ing.cantidad * formData.cantidad,
+            ing.unidad,
+            nuevosInsumos[insumoIndex].unidadStock
+          );
+          nuevosInsumos[insumoIndex].stock -= cantidadADescontar;
+        }
+      }
+    });
+    
+    // Descontar packaging
+    if (formData.packagingId) {
+      const packIndex = nuevoPackaging.findIndex(p => p.id === formData.packagingId);
+      if (packIndex !== -1) {
+        nuevoPackaging[packIndex].stock -= formData.cantidadPackaging * formData.cantidad;
+      }
+    }
+    
+    setInsumos(nuevosInsumos);
+    setPackaging(nuevoPackaging);
+    
+    // Registrar venta
+    const nuevaVenta = {
+      id: generarId(),
+      ...formData,
+      recetaNombre: receta.nombre,
+      costoTotal,
+      ganancia,
+      margenGanancia,
+      timestamp: new Date().toISOString()
+    };
+    
+    setVentasRealizadas([nuevaVenta, ...ventasRealizadas]);
+    resetForm();
+    
+    // Mostrar confirmación
+    alert(`✅ Venta registrada exitosamente!\n\nCliente: ${formData.cliente}\nProducto: ${receta.nombre}\nGanancia: ${formatearMoneda(ganancia)}\n\n📦 Stock actualizado automáticamente`);
+  };
+
+  const resetForm = () => {
+    setFormData({
+      cliente: '',
+      recetaId: '',
+      cantidad: 1,
+      precioVenta: 0,
+      packagingId: '',
+      cantidadPackaging: 1,
+      fecha: new Date().toISOString().split('T')[0]
+    });
+    setShowModal(false);
+  };
+
+  const eliminarVenta = (id) => {
+    if (confirm('¿Eliminar esta venta? Nota: No se revertirá el stock descontado.')) {
+      setVentasRealizadas(ventasRealizadas.filter(v => v.id !== id));
+    }
+  };
+
+  // Filtrar ventas
+  const ventasFiltradas = ventasRealizadas.filter(v => {
+    const matchCliente = !filtroCliente || v.cliente.toLowerCase().includes(filtroCliente.toLowerCase());
+    const matchProducto = !filtroProducto || v.recetaNombre.toLowerCase().includes(filtroProducto.toLowerCase());
+    return matchCliente && matchProducto;
+  });
+
+  // Estadísticas
+  const totalVendido = ventasRealizadas.reduce((sum, v) => sum + v.precioVenta, 0);
+  const totalGanancias = ventasRealizadas.reduce((sum, v) => sum + v.ganancia, 0);
+  const ventasHoy = ventasRealizadas.filter(v => {
+    const hoy = new Date().toISOString().split('T')[0];
+    return v.fecha === hoy;
+  });
+
+  return (
+    <div className="fade-in">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
+        <div>
+          <h2 style={{ fontSize: '1.75rem', fontWeight: '700', color: theme.text, margin: '0 0 0.5rem 0' }}>
+            Historial de Ventas
+          </h2>
+          <p style={{ color: theme.textLight, margin: 0 }}>
+            Registra ventas y descuenta stock automáticamente
+          </p>
+        </div>
+        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <Button 
+            variant="secondary"
+            icon={Download}
+            onClick={() => generarPDFVentas(ventasRealizadas, 'Todas')}
+            disabled={ventasRealizadas.length === 0}
+          >
+            Exportar PDF
+          </Button>
+          <Button 
+            icon={Plus} 
+            onClick={() => setShowModal(true)}
+            disabled={recetas.length === 0}
+          >
+            Registrar Venta
+          </Button>
+        </div>
+      </div>
+
+      {recetas.length === 0 && (
+        <Alert type="warning" style={{ marginBottom: '2rem' }}>
+          <AlertDescription>
+            Debes crear recetas antes de registrar ventas.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Estadísticas */}
+      {ventasRealizadas.length > 0 && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
+          <Card style={{ padding: '1.25rem' }}>
+            <div style={{ fontSize: '0.85rem', color: theme.textLight, marginBottom: '0.5rem' }}>Total Vendido</div>
+            <div style={{ fontSize: '1.75rem', fontWeight: '700', color: theme.primary }}>{formatearMoneda(totalVendido)}</div>
+          </Card>
+          <Card style={{ padding: '1.25rem' }}>
+            <div style={{ fontSize: '0.85rem', color: theme.textLight, marginBottom: '0.5rem' }}>Total Ganancias</div>
+            <div style={{ fontSize: '1.75rem', fontWeight: '700', color: theme.success }}>{formatearMoneda(totalGanancias)}</div>
+          </Card>
+          <Card style={{ padding: '1.25rem' }}>
+            <div style={{ fontSize: '0.85rem', color: theme.textLight, marginBottom: '0.5rem' }}>Ventas Hoy</div>
+            <div style={{ fontSize: '1.75rem', fontWeight: '700', color: theme.text }}>{ventasHoy.length}</div>
+          </Card>
+          <Card style={{ padding: '1.25rem' }}>
+            <div style={{ fontSize: '0.85rem', color: theme.textLight, marginBottom: '0.5rem' }}>Total Ventas</div>
+            <div style={{ fontSize: '1.75rem', fontWeight: '700', color: theme.text }}>{ventasRealizadas.length}</div>
+          </Card>
+        </div>
+      )}
+
+      {/* Filtros */}
+      {ventasRealizadas.length > 0 && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
+          <Input
+            placeholder="🔍 Buscar por cliente..."
+            value={filtroCliente}
+            onChange={e => setFiltroCliente(e.target.value)}
+            icon={Search}
+          />
+          <Input
+            placeholder="🔍 Buscar por producto..."
+            value={filtroProducto}
+            onChange={e => setFiltroProducto(e.target.value)}
+            icon={Search}
+          />
+        </div>
+      )}
+
+      {/* Lista de Ventas */}
+      <div style={{ display: 'grid', gap: '1rem' }}>
+        {ventasFiltradas.map(venta => (
+          <Card key={venta.id}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '1rem' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                  <h3 style={{ fontSize: '1.2rem', fontWeight: '600', color: theme.text, margin: 0 }}>
+                    {venta.cliente || 'Sin nombre'}
+                  </h3>
+                  <Badge variant={venta.ganancia >= 0 ? 'success' : 'danger'}>
+                    {venta.ganancia >= 0 ? '✅ Ganancia' : '⚠️ Pérdida'}
+                  </Badge>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.75rem', fontSize: '0.9rem' }}>
+                  <div>
+                    <span style={{ color: theme.textLight }}>Producto:</span>
+                    <div style={{ fontWeight: '600', color: theme.text }}>{venta.recetaNombre}</div>
+                  </div>
+                  <div>
+                    <span style={{ color: theme.textLight }}>Cantidad:</span>
+                    <div style={{ fontWeight: '600', color: theme.text }}>{venta.cantidad} unidad(es)</div>
+                  </div>
+                  <div>
+                    <span style={{ color: theme.textLight }}>Precio Venta:</span>
+                    <div style={{ fontWeight: '600', color: theme.primary }}>{formatearMoneda(venta.precioVenta)}</div>
+                  </div>
+                  <div>
+                    <span style={{ color: theme.textLight }}>Ganancia:</span>
+                    <div style={{ fontWeight: '700', color: venta.ganancia >= 0 ? theme.success : theme.danger }}>
+                      {formatearMoneda(Math.abs(venta.ganancia))}
+                    </div>
+                  </div>
+                  <div>
+                    <span style={{ color: theme.textLight }}>Margen:</span>
+                    <div style={{ fontWeight: '600', color: theme.text }}>{venta.margenGanancia.toFixed(1)}%</div>
+                  </div>
+                  <div>
+                    <span style={{ color: theme.textLight }}>Fecha:</span>
+                    <div style={{ fontWeight: '600', color: theme.text }}>{formatearFecha(venta.fecha)}</div>
+                  </div>
+                </div>
+              </div>
+              <Button
+                size="sm"
+                variant="danger"
+                icon={Trash2}
+                onClick={() => eliminarVenta(venta.id)}
+                style={{ padding: '0.5rem', minWidth: 'auto', alignSelf: 'start' }}
+              />
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      {ventasFiltradas.length === 0 && ventasRealizadas.length > 0 && (
+        <Card style={{ textAlign: 'center', padding: '3rem 2rem' }}>
+          <Search size={48} color={theme.textLight} style={{ marginBottom: '1rem', marginLeft: 'auto', marginRight: 'auto' }} />
+          <p style={{ fontSize: '1.1rem', color: theme.textLight }}>
+            No se encontraron ventas con esos filtros
+          </p>
+        </Card>
+      )}
+
+      {ventasRealizadas.length === 0 && recetas.length > 0 && (
+        <Card style={{ textAlign: 'center', padding: '4rem 2rem' }}>
+          <TrendingUp size={48} color={theme.textLight} style={{ marginBottom: '1rem', marginLeft: 'auto', marginRight: 'auto' }} />
+          <p style={{ fontSize: '1.1rem', color: theme.textLight }}>
+            No hay ventas registradas. ¡Registra tu primera venta!
+          </p>
+        </Card>
+      )}
+
+      {/* Modal Registrar Venta */}
+      {showModal && (
+        <Modal onClose={resetForm} title="Registrar Nueva Venta" large>
+          <form onSubmit={registrarVenta} style={{ display: 'grid', gap: '1rem' }}>
+            <Alert type="info">
+              <AlertDescription>
+                ⚡ El stock de insumos y packaging se descontará automáticamente al registrar la venta
+              </AlertDescription>
+            </Alert>
+            
+            <Input
+              label="Nombre del Cliente"
+              required
+              value={formData.cliente}
+              onChange={e => setFormData({ ...formData, cliente: e.target.value })}
+              placeholder="Nombre del cliente..."
+            />
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1rem' }}>
+              <Select
+                label="Producto (Receta)"
+                required
+                value={formData.recetaId}
+                onChange={e => setFormData({ ...formData, recetaId: e.target.value })}
+              >
+                <option value="">Seleccionar receta...</option>
+                {recetas.map(receta => (
+                  <option key={receta.id} value={receta.id}>
+                    {receta.nombre} - {formatearMoneda(calcularCostoReceta(receta))}
+                  </option>
+                ))}
+              </Select>
+              
+              <Input
+                label="Cantidad"
+                type="number"
+                step="1"
+                min="1"
+                required
+                value={formData.cantidad}
+                onChange={e => setFormData({ ...formData, cantidad: parseInt(e.target.value) || 1 })}
+              />
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1rem' }}>
+              <Select
+                label="Packaging Usado (opcional)"
+                value={formData.packagingId}
+                onChange={e => setFormData({ ...formData, packagingId: e.target.value })}
+              >
+                <option value="">Ninguno</option>
+                {packaging.map(pack => (
+                  <option key={pack.id} value={pack.id}>
+                    {pack.nombre} - {formatearMoneda(pack.precio)}
+                  </option>
+                ))}
+              </Select>
+              
+              {formData.packagingId && (
+                <Input
+                  label="Cantidad Packaging"
+                  type="number"
+                  step="1"
+                  min="1"
+                  value={formData.cantidadPackaging}
+                  onChange={e => setFormData({ ...formData, cantidadPackaging: parseInt(e.target.value) || 1 })}
+                />
+              )}
+            </div>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <Input
+                label="Precio de Venta"
+                type="number"
+                step="0.01"
+                min="0"
+                required
+                value={formData.precioVenta}
+                onChange={e => setFormData({ ...formData, precioVenta: parseFloat(e.target.value) || 0 })}
+              />
+              
+              <Input
+                label="Fecha de Venta"
+                type="date"
+                required
+                value={formData.fecha}
+                onChange={e => setFormData({ ...formData, fecha: e.target.value })}
+              />
+            </div>
+
+            {formData.recetaId && formData.precioVenta > 0 && (
+              <Card style={{ backgroundColor: theme.secondary, border: `2px solid ${theme.primary}` }}>
+                <div style={{ fontSize: '0.9rem', color: theme.textLight, marginBottom: '0.5rem' }}>
+                  Vista previa de la venta
+                </div>
+                {(() => {
+                  const receta = recetas.find(r => r.id === formData.recetaId);
+                  const costoReceta = calcularCostoReceta(receta);
+                  let costoPackaging = 0;
+                  if (formData.packagingId) {
+                    const pack = packaging.find(p => p.id === formData.packagingId);
+                    if (pack) costoPackaging = pack.precio * formData.cantidadPackaging;
+                  }
+                  const costoTotal = (costoReceta + costoPackaging) * formData.cantidad;
+                  const ganancia = formData.precioVenta - costoTotal;
+                  
+                  return (
+                    <div style={{ display: 'grid', gap: '0.5rem', fontSize: '0.95rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span>Costo total:</span>
+                        <span style={{ fontWeight: '600' }}>{formatearMoneda(costoTotal)}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '0.5rem', borderTop: `1px solid ${theme.primary}` }}>
+                        <span style={{ fontWeight: '600', color: ganancia >= 0 ? theme.success : theme.danger }}>
+                          {ganancia >= 0 ? 'Ganancia:' : 'Pérdida:'}
+                        </span>
+                        <span style={{ fontWeight: '700', fontSize: '1.25rem', color: ganancia >= 0 ? theme.success : theme.danger }}>
+                          {formatearMoneda(Math.abs(ganancia))}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </Card>
+            )}
+
+            <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
+              <Button variant="outline" onClick={resetForm} fullWidth>Cancelar</Button>
+              <Button type="submit" icon={Save} fullWidth>Registrar Venta</Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+    </div>
+  );
+};
+
+// ===== COMPONENTE_5_DASHBOARD.jsx =====
+// Copia este componente completo en App.jsx (después de HistorialView)
+
+const DashboardView = ({ ventasRealizadas, recetas, insumos, packaging }) => {
+  // Calcular KPIs
+  const hoy = new Date().toISOString().split('T')[0];
+  const hace7Dias = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const hace30Dias = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+  const ventasHoy = ventasRealizadas.filter(v => v.fecha === hoy);
+  const ventasSemana = ventasRealizadas.filter(v => v.fecha >= hace7Dias);
+  const ventasMes = ventasRealizadas.filter(v => v.fecha >= hace30Dias);
+
+  const totalHoy = ventasHoy.reduce((sum, v) => sum + v.precioVenta, 0);
+  const totalSemana = ventasSemana.reduce((sum, v) => sum + v.precioVenta, 0);
+  const totalMes = ventasMes.reduce((sum, v) => sum + v.precioVenta, 0);
+
+  const gananciaHoy = ventasHoy.reduce((sum, v) => sum + v.ganancia, 0);
+  const gananciaSemana = ventasSemana.reduce((sum, v) => sum + v.ganancia, 0);
+  const gananciaMes = ventasMes.reduce((sum, v) => sum + v.ganancia, 0);
+
+  // Alertas de stock
+  const alertasInsumos = insumos.filter(i => i.stock < 10);
+  const alertasPackaging = packaging.filter(p => p.stock < 10);
+  const totalAlertas = alertasInsumos.length + alertasPackaging.length;
+
+  // Producto más vendido
+  const ventasPorProducto = {};
+  ventasRealizadas.forEach(v => {
+    ventasPorProducto[v.recetaNombre] = (ventasPorProducto[v.recetaNombre] || 0) + v.cantidad;
+  });
+  const productoMasVendido = Object.keys(ventasPorProducto).length > 0
+    ? Object.entries(ventasPorProducto).sort((a, b) => b[1] - a[1])[0]
+    : null;
+
+  // Datos para gráficos
+  // 1. Ventas por producto (últimos 30 días)
+  const datosVentasPorProducto = Object.entries(ventasPorProducto).map(([nombre, cantidad]) => ({
+    nombre: nombre.length > 15 ? nombre.substring(0, 15) + '...' : nombre,
+    cantidad,
+    nombreCompleto: nombre
+  })).slice(0, 6);
+
+  // 2. Evolución de ventas (últimos 14 días)
+  const datosEvolucion = [];
+  for (let i = 13; i >= 0; i--) {
+    const fecha = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
+    const fechaStr = fecha.toISOString().split('T')[0];
+    const ventasDia = ventasRealizadas.filter(v => v.fecha === fechaStr);
+    const totalDia = ventasDia.reduce((sum, v) => sum + v.precioVenta, 0);
+    const gananciaDia = ventasDia.reduce((sum, v) => sum + v.ganancia, 0);
+    
+    datosEvolucion.push({
+      fecha: fecha.getDate() + '/' + (fecha.getMonth() + 1),
+      ventas: totalDia,
+      ganancias: gananciaDia
+    });
+  }
+
+  // 3. Top 5 productos más rentables
+  const rentabilidadPorProducto = {};
+  ventasRealizadas.forEach(v => {
+    if (!rentabilidadPorProducto[v.recetaNombre]) {
+      rentabilidadPorProducto[v.recetaNombre] = { ganancia: 0, cantidad: 0 };
+    }
+    rentabilidadPorProducto[v.recetaNombre].ganancia += v.ganancia;
+    rentabilidadPorProducto[v.recetaNombre].cantidad += 1;
+  });
+  
+  const top5Rentables = Object.entries(rentabilidadPorProducto)
+    .map(([nombre, datos]) => ({
+      nombre: nombre.length > 20 ? nombre.substring(0, 20) + '...' : nombre,
+      ganancia: datos.ganancia,
+      promedio: datos.ganancia / datos.cantidad
+    }))
+    .sort((a, b) => b.ganancia - a.ganancia)
+    .slice(0, 5);
+
+  return (
+    <div className="fade-in">
+      <div style={{ marginBottom: '2rem' }}>
+        <h2 style={{ fontSize: '1.75rem', fontWeight: '700', color: theme.text, margin: '0 0 0.5rem 0' }}>
+          Dashboard
+        </h2>
+        <p style={{ color: theme.textLight, margin: 0 }}>
+          Visión general de tu negocio
+        </p>
+      </div>
+
+      {/* Alertas */}
+      {totalAlertas > 0 && (
+        <Alert type="warning" style={{ marginBottom: '2rem' }}>
+          <AlertDescription>
+            <strong>⚠️ {totalAlertas} alerta(s) de stock:</strong> {alertasInsumos.length} insumo(s) y {alertasPackaging.length} packaging(s) con stock bajo
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* KPIs Principales */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+        <Card style={{ padding: '1.5rem', background: `linear-gradient(135deg, ${theme.primary}, ${theme.accent})`, color: 'white', border: 'none' }}>
+          <div style={{ fontSize: '0.9rem', opacity: 0.9, marginBottom: '0.5rem' }}>💰 Total Vendido Hoy</div>
+          <div style={{ fontSize: '2rem', fontWeight: '700' }}>{formatearMoneda(totalHoy)}</div>
+          <div style={{ fontSize: '0.85rem', opacity: 0.8, marginTop: '0.5rem' }}>
+            {ventasHoy.length} venta(s)
+          </div>
+        </Card>
+
+        <Card style={{ padding: '1.5rem' }}>
+          <div style={{ fontSize: '0.9rem', color: theme.textLight, marginBottom: '0.5rem' }}>📊 Total Semana</div>
+          <div style={{ fontSize: '2rem', fontWeight: '700', color: theme.primary }}>{formatearMoneda(totalSemana)}</div>
+          <div style={{ fontSize: '0.85rem', color: theme.textLight, marginTop: '0.5rem' }}>
+            {ventasSemana.length} venta(s)
+          </div>
+        </Card>
+
+        <Card style={{ padding: '1.5rem' }}>
+          <div style={{ fontSize: '0.9rem', color: theme.textLight, marginBottom: '0.5rem' }}>📈 Total Mes</div>
+          <div style={{ fontSize: '2rem', fontWeight: '700', color: theme.primary }}>{formatearMoneda(totalMes)}</div>
+          <div style={{ fontSize: '0.85rem', color: theme.textLight, marginTop: '0.5rem' }}>
+            {ventasMes.length} venta(s)
+          </div>
+        </Card>
+
+        <Card style={{ padding: '1.5rem', background: theme.secondary, border: `2px solid ${theme.success}` }}>
+          <div style={{ fontSize: '0.9rem', color: theme.textLight, marginBottom: '0.5rem' }}>✅ Ganancia Mes</div>
+          <div style={{ fontSize: '2rem', fontWeight: '700', color: theme.success }}>{formatearMoneda(gananciaMes)}</div>
+          <div style={{ fontSize: '0.85rem', color: theme.textLight, marginTop: '0.5rem' }}>
+            {totalMes > 0 ? `${(gananciaMes / totalMes * 100).toFixed(1)}% margen` : '0% margen'}
+          </div>
+        </Card>
+      </div>
+
+      {/* Datos Rápidos */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+        <Card style={{ padding: '1.25rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
+            <ChefHat size={24} color={theme.primary} />
+            <h3 style={{ fontSize: '1.1rem', fontWeight: '600', color: theme.text, margin: 0 }}>Recetas</h3>
+          </div>
+          <div style={{ fontSize: '2rem', fontWeight: '700', color: theme.primary }}>{recetas.length}</div>
+          <div style={{ fontSize: '0.85rem', color: theme.textLight, marginTop: '0.5rem' }}>
+            {productoMasVendido ? `Más vendido: ${productoMasVendido[0]}` : 'Sin ventas aún'}
+          </div>
+        </Card>
+
+        <Card style={{ padding: '1.25rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
+            <ShoppingBag size={24} color={theme.primary} />
+            <h3 style={{ fontSize: '1.1rem', fontWeight: '600', color: theme.text, margin: 0 }}>Insumos</h3>
+          </div>
+          <div style={{ fontSize: '2rem', fontWeight: '700', color: theme.primary }}>{insumos.length}</div>
+          <div style={{ fontSize: '0.85rem', color: alertasInsumos.length > 0 ? theme.danger : theme.success, marginTop: '0.5rem' }}>
+            {alertasInsumos.length > 0 ? `⚠️ ${alertasInsumos.length} con stock bajo` : '✅ Stock OK'}
+          </div>
+        </Card>
+
+        <Card style={{ padding: '1.25rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
+            <Package size={24} color={theme.primary} />
+            <h3 style={{ fontSize: '1.1rem', fontWeight: '600', color: theme.text, margin: 0 }}>Packaging</h3>
+          </div>
+          <div style={{ fontSize: '2rem', fontWeight: '700', color: theme.primary }}>{packaging.length}</div>
+          <div style={{ fontSize: '0.85rem', color: alertasPackaging.length > 0 ? theme.danger : theme.success, marginTop: '0.5rem' }}>
+            {alertasPackaging.length > 0 ? `⚠️ ${alertasPackaging.length} con stock bajo` : '✅ Stock OK'}
+          </div>
+        </Card>
+
+        <Card style={{ padding: '1.25rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
+            <TrendingUp size={24} color={theme.primary} />
+            <h3 style={{ fontSize: '1.1rem', fontWeight: '600', color: theme.text, margin: 0 }}>Ventas</h3>
+          </div>
+          <div style={{ fontSize: '2rem', fontWeight: '700', color: theme.primary }}>{ventasRealizadas.length}</div>
+          <div style={{ fontSize: '0.85rem', color: theme.textLight, marginTop: '0.5rem' }}>
+            Total histórico
+          </div>
+        </Card>
+      </div>
+
+      {ventasRealizadas.length > 0 ? (
+        <>
+          {/* Gráficos */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+            {/* Gráfico de Ventas por Producto */}
+            {datosVentasPorProducto.length > 0 && (
+              <Card style={{ padding: '1.5rem' }}>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: '600', color: theme.text, marginBottom: '1.5rem' }}>
+                  📊 Ventas por Producto
+                </h3>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={datosVentasPorProducto}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={theme.border} />
+                    <XAxis dataKey="nombre" tick={{ fontSize: 12 }} />
+                    <YAxis />
+                    <Tooltip 
+                      contentStyle={{ backgroundColor: theme.card, border: `1px solid ${theme.border}`, borderRadius: '8px' }}
+                      formatter={(value, name) => [value + ' unidades', 'Vendidas']}
+                    />
+                    <Bar dataKey="cantidad" fill={theme.primary} radius={[8, 8, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </Card>
+            )}
+
+            {/* Gráfico de Evolución */}
+            {datosEvolucion.some(d => d.ventas > 0) && (
+              <Card style={{ padding: '1.5rem' }}>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: '600', color: theme.text, marginBottom: '1.5rem' }}>
+                  📈 Evolución de Ventas (14 días)
+                </h3>
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={datosEvolucion}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={theme.border} />
+                    <XAxis dataKey="fecha" tick={{ fontSize: 12 }} />
+                    <YAxis />
+                    <Tooltip 
+                      contentStyle={{ backgroundColor: theme.card, border: `1px solid ${theme.border}`, borderRadius: '8px' }}
+                      formatter={(value) => formatearMoneda(value)}
+                    />
+                    <Legend />
+                    <Line type="monotone" dataKey="ventas" stroke={theme.primary} strokeWidth={2} dot={{ r: 4 }} name="Ventas" />
+                    <Line type="monotone" dataKey="ganancias" stroke={theme.success} strokeWidth={2} dot={{ r: 4 }} name="Ganancias" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </Card>
+            )}
+          </div>
+
+          {/* Gráfico de Área - Ganancias vs Costos */}
+          {datosEvolucion.some(d => d.ganancias !== 0) && (
+            <Card style={{ padding: '1.5rem', marginBottom: '2rem' }}>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: '600', color: theme.text, marginBottom: '1.5rem' }}>
+                💰 Análisis de Rentabilidad
+              </h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <AreaChart data={datosEvolucion}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={theme.border} />
+                  <XAxis dataKey="fecha" tick={{ fontSize: 12 }} />
+                  <YAxis />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: theme.card, border: `1px solid ${theme.border}`, borderRadius: '8px' }}
+                    formatter={(value) => formatearMoneda(value)}
+                  />
+                  <Legend />
+                  <Area type="monotone" dataKey="ventas" stackId="1" stroke={theme.primary} fill={theme.accent} name="Ventas Totales" />
+                  <Area type="monotone" dataKey="ganancias" stackId="2" stroke={theme.success} fill="#E8F5E9" name="Ganancias" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </Card>
+          )}
+
+          {/* Top 5 Productos Rentables */}
+          {top5Rentables.length > 0 && (
+            <Card style={{ padding: '1.5rem' }}>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: '600', color: theme.text, marginBottom: '1.5rem' }}>
+                🏆 Top 5 Productos Más Rentables
+              </h3>
+              <div style={{ display: 'grid', gap: '1rem' }}>
+                {top5Rentables.map((prod, idx) => (
+                  <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', backgroundColor: theme.background, borderRadius: '8px' }}>
+                    <div style={{ fontSize: '1.5rem', fontWeight: '700', color: theme.primary, minWidth: '2rem' }}>
+                      #{idx + 1}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: '600', color: theme.text, marginBottom: '0.25rem' }}>{prod.nombre}</div>
+                      <div style={{ fontSize: '0.85rem', color: theme.textLight }}>
+                        Ganancia total: {formatearMoneda(prod.ganancia)}
+                      </div>
+                    </div>
+                    <Badge variant="success">
+                      {formatearMoneda(prod.promedio)}/venta
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+        </>
+      ) : (
+        <Card style={{ textAlign: 'center', padding: '4rem 2rem' }}>
+          <BarChart3 size={64} color={theme.textLight} style={{ marginBottom: '1.5rem', marginLeft: 'auto', marginRight: 'auto' }} />
+          <h3 style={{ fontSize: '1.3rem', fontWeight: '600', color: theme.text, marginBottom: '0.75rem' }}>
+            No hay datos para mostrar
+          </h3>
+          <p style={{ fontSize: '1rem', color: theme.textLight, marginBottom: '1.5rem' }}>
+            Comienza registrando ventas para ver estadísticas y gráficos
+          </p>
+        </Card>
+      )}
+    </div>
+  );
+};
+
+
+// ==================== COMPONENTE PRINCIPAL: APP ====================
+export default function App() {
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [insumos, setInsumos] = useState([]);
+  const [recetas, setRecetas] = useState([]);
+  const [packaging, setPackaging] = useState([]);
+  const [ventasRealizadas, setVentasRealizadas] = useState([]);
+  const [showModal, setShowModal] = useState(false);
+  const [editingItem, setEditingItem] = useState(null);
+
+  // Cargar datos del localStorage
+  useEffect(() => {
+    try {
+      const keys = ['insumos', 'recetas', 'packaging', 'ventasRealizadas'];
+      keys.forEach(key => {
+        const stored = localStorage.getItem(`esencia-${key}-v3`);
+        if (stored) {
+          const data = JSON.parse(stored);
+          if (key === 'insumos') setInsumos(data);
+          else if (key === 'recetas') setRecetas(data);
+          else if (key === 'packaging') setPackaging(data);
+          else if (key === 'ventasRealizadas') setVentasRealizadas(data);
+        }
+      });
+    } catch (error) {
+      console.log('Iniciando con datos vacíos');
+    }
+  }, []);
+
+  // Guardar datos en localStorage
+  useEffect(() => { 
+    if (insumos.length >= 0) localStorage.setItem('esencia-insumos-v3', JSON.stringify(insumos)); 
+  }, [insumos]);
+  
+  useEffect(() => { 
+    if (recetas.length >= 0) localStorage.setItem('esencia-recetas-v3', JSON.stringify(recetas)); 
+  }, [recetas]);
+  
+  useEffect(() => { 
+    if (packaging.length >= 0) localStorage.setItem('esencia-packaging-v3', JSON.stringify(packaging)); 
+  }, [packaging]);
+  
+  useEffect(() => { 
+    if (ventasRealizadas.length >= 0) localStorage.setItem('esencia-ventasRealizadas-v3', JSON.stringify(ventasRealizadas)); 
+  }, [ventasRealizadas]);
+
+  const tabs = [
+    { id: 'dashboard', name: 'Dashboard', icon: BarChart3 },
+    { id: 'insumos', name: 'Insumos', icon: ShoppingBag },
+    { id: 'packaging', name: 'Packaging', icon: Package },
+    { id: 'recetas', name: 'Recetas', icon: ChefHat },
+    { id: 'ventas', name: 'Precios', icon: DollarSign },
+    { id: 'historial', name: 'Historial', icon: TrendingUp }
+  ];
+
+  return (
+    <div style={{ minHeight: '100vh', backgroundColor: theme.background, fontFamily: 'system-ui, sans-serif' }}>
+      {/* Header */}
+      <header style={{ 
+        backgroundColor: theme.card, 
+        borderBottom: `2px solid ${theme.border}`, 
+        padding: '1.5rem 2rem', 
+        boxShadow: '0 2px 8px rgba(90,124,67,0.08)',
+        position: 'sticky',
+        top: 0,
+        zIndex: 99
+      }}>
+        <div style={{ maxWidth: '1400px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <div style={{ 
+              width: '60px', 
+              height: '60px', 
+              borderRadius: '12px', 
+              background: `linear-gradient(135deg, ${theme.primary}, ${theme.accent})`, 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              flexShrink: 0 
+            }}>
+              <ChefHat size={32} color="white" />
+            </div>
+            <div>
+              <h1 style={{ fontSize: '1.75rem', fontWeight: '700', color: theme.text, margin: 0 }}>
+                Esencia Nutri PRO
+              </h1>
+              <p style={{ color: theme.textLight, margin: 0, fontSize: '0.9rem' }}>
+                Sistema de Gestión Completo v3.0
+              </p>
+            </div>
+          </div>
+          {/* Exportar/Importar Datos */}
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <Button
+              size="sm"
+              variant="outline"
+              icon={Download}
+              onClick={() => {
+                const allData = { insumos, recetas, packaging, ventasRealizadas };
+                descargarJSON(allData, `esencia-nutri-backup-${new Date().toISOString().split('T')[0]}.json`);
+              }}
+              style={{ fontSize: '0.85rem' }}
+            >
+              Backup
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              icon={Upload}
+              onClick={() => {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = '.json';
+                input.onchange = async (e) => {
+                  try {
+                    const file = e.target.files[0];
+                    const data = await leerJSON(file);
+                    if (confirm('¿Restaurar datos desde este archivo? Esto reemplazará todos los datos actuales.')) {
+                      if (data.insumos) setInsumos(data.insumos);
+                      if (data.recetas) setRecetas(data.recetas);
+                      if (data.packaging) setPackaging(data.packaging);
+                      if (data.ventasRealizadas) setVentasRealizadas(data.ventasRealizadas);
+                      alert('✅ Datos restaurados exitosamente');
+                    }
+                  } catch (error) {
+                    alert('❌ Error al leer el archivo: ' + error.message);
+                  }
+                };
+                input.click();
+              }}
+              style={{ fontSize: '0.85rem' }}
+            >
+              Restaurar
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      {/* Navigation */}
+      <nav style={{ 
+        backgroundColor: theme.card, 
+        borderBottom: `1px solid ${theme.border}`, 
+        position: 'sticky', 
+        top: '96px', 
+        zIndex: 98, 
+        boxShadow: '0 1px 4px rgba(0,0,0,0.05)' 
+      }}>
+        <div style={{ 
+          maxWidth: '1400px', 
+          margin: '0 auto', 
+          display: 'flex', 
+          gap: '0.5rem', 
+          padding: '0 2rem', 
+          overflowX: 'auto' 
+        }}>
+          {tabs.map(tab => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button 
+                key={tab.id} 
+                onClick={() => setActiveTab(tab.id)} 
+                style={{ 
+                  padding: '1rem 1.5rem', 
+                  border: 'none', 
+                  background: isActive ? theme.hover : 'transparent', 
+                  color: isActive ? theme.text : theme.textLight, 
+                  cursor: 'pointer', 
+                  fontSize: '0.95rem', 
+                  fontWeight: isActive ? '600' : '500', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '0.5rem', 
+                  borderBottom: isActive ? `3px solid ${theme.primary}` : '3px solid transparent', 
+                  transition: 'all 0.2s ease', 
+                  whiteSpace: 'nowrap' 
+                }}
+              >
+                <Icon size={18} />{tab.name}
+              </button>
+            );
+          })}
+        </div>
+      </nav>
+
+      {/* Main Content */}
+      <main style={{ maxWidth: '1400px', margin: '0 auto', padding: '2rem' }}>
+        {activeTab === 'dashboard' && (
+          <DashboardView 
+            ventasRealizadas={ventasRealizadas} 
+            recetas={recetas} 
+            insumos={insumos} 
+            packaging={packaging} 
+          />
+        )}
+        {activeTab === 'insumos' && (
+          <InsumosView 
+            insumos={insumos} 
+            setInsumos={setInsumos} 
+            showModal={showModal} 
+            setShowModal={setShowModal} 
+            editingItem={editingItem} 
+            setEditingItem={setEditingItem} 
+          />
+        )}
+        {activeTab === 'packaging' && (
+          <PackagingView 
+            packaging={packaging} 
+            setPackaging={setPackaging} 
+            showModal={showModal} 
+            setShowModal={setShowModal} 
+            editingItem={editingItem} 
+            setEditingItem={setEditingItem} 
+          />
+        )}
+        {activeTab === 'recetas' && (
+          <RecetasView 
+            recetas={recetas} 
+            setRecetas={setRecetas} 
+            insumos={insumos} 
+            showModal={showModal} 
+            setShowModal={setShowModal} 
+            editingItem={editingItem} 
+            setEditingItem={setEditingItem} 
+          />
+        )}
+        {activeTab === 'ventas' && (
+          <VentasView 
+            recetas={recetas} 
+            packaging={packaging} 
+            insumos={insumos} 
+          />
+        )}
+        {activeTab === 'historial' && (
+          <HistorialView 
+            ventasRealizadas={ventasRealizadas} 
+            setVentasRealizadas={setVentasRealizadas} 
+            recetas={recetas} 
+            insumos={insumos} 
+            setInsumos={setInsumos} 
+            packaging={packaging} 
+            setPackaging={setPackaging} 
+          />
+        )}
+      </main>
+    </div>
+  );
+}
