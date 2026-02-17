@@ -1009,54 +1009,153 @@ const VentasView = ({ recetas, packaging, insumos }) => {
                         )}
                       </div>
 
-                      {/* Precio Por Unidad */}
+                      {/* Precio Por Unidad CON SELECTOR DE CANTIDAD */}
                       <div style={{ paddingTop: '1rem', borderTop: `2px solid ${theme.primary}` }}>
-                        <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '600', color: theme.text, marginBottom: '0.5rem' }}>
-                          Precio por {producto.unidadRendimiento}:
-                        </label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={producto.precioVentaPorUnidad}
-                          onChange={e => actualizarProducto(producto.id, 'precioVentaPorUnidad', parseFloat(e.target.value) || 0)}
-                          placeholder="0.00"
-                          style={{ fontSize: '1.25rem', fontWeight: '700', textAlign: 'center' }}
-                        />
-                        {producto.precioVentaPorUnidad > 0 && (
-                          <div style={{ marginTop: '0.75rem', padding: '0.75rem', backgroundColor: 'white', borderRadius: '8px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
-                              <span style={{ fontSize: '0.85rem', color: totales.gananciaPorUnidad >= 0 ? theme.success : theme.danger, fontWeight: '600' }}>
-                                {totales.gananciaPorUnidad >= 0 ? '✅ Ganancia por unidad:' : '⚠️ Pérdida por unidad:'}
-                              </span>
-                              <span style={{ fontSize: '1.1rem', fontWeight: '700', color: totales.gananciaPorUnidad >= 0 ? theme.success : theme.danger }}>
-                                {formatearMoneda(Math.abs(totales.gananciaPorUnidad))}
-                              </span>
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                              <span style={{ fontSize: '0.8rem', color: theme.textLight }}>Margen:</span>
-                              <Badge variant={totales.margenPorUnidad >= 20 ? 'success' : totales.margenPorUnidad >= 10 ? 'warning' : 'danger'}>
-                                {totales.margenPorUnidad.toFixed(1)}%
-                              </Badge>
-                            </div>
-                            {producto.unidadRendimiento === 'unidad' && (
-                              <div style={{ paddingTop: '0.5rem', borderTop: '1px solid #e0e0e0' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
-                                  <span style={{ color: theme.textLight }}>Precio por docena:</span>
-                                  <span style={{ fontWeight: '600', color: theme.text }}>
-                                    {formatearMoneda(producto.precioVentaPorUnidad * 12)}
-                                  </span>
-                                </div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
-                                  <span style={{ color: theme.textLight }}>Ganancia por docena:</span>
-                                  <span style={{ fontWeight: '600', color: totales.gananciaPorUnidad >= 0 ? theme.success : theme.danger }}>
-                                    {formatearMoneda(totales.gananciaPorUnidad * 12)}
-                                  </span>
-                                </div>
-                              </div>
-                            )}
+                        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '600', color: theme.text, marginBottom: '0.5rem' }}>
+                              Precio por:
+                            </label>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={producto.precioVentaPorUnidad}
+                              onChange={e => actualizarProducto(producto.id, 'precioVentaPorUnidad', parseFloat(e.target.value) || 0)}
+                              placeholder="0.00"
+                              style={{ fontSize: '1.25rem', fontWeight: '700', textAlign: 'center' }}
+                            />
                           </div>
-                        )}
+                          <div>
+                            <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '600', color: theme.text, marginBottom: '0.5rem' }}>
+                              Tipo:
+                            </label>
+                            <Select
+                              value={producto.tipoVenta || 'unidad'}
+                              onChange={e => actualizarProducto(producto.id, 'tipoVenta', e.target.value)}
+                              style={{ fontSize: '0.95rem', fontWeight: '600', textAlign: 'center' }}
+                            >
+                              <option value="unidad">Unidad</option>
+                              <option value="docena">Docena</option>
+                              <option value="media_docena">Media Docena</option>
+                              <option value="kilo">Kilo</option>
+                              <option value="porcion">Porción</option>
+                            </Select>
+                          </div>
+                        </div>
+                        
+                        {producto.precioVentaPorUnidad > 0 && (() => {
+                          const tipoVenta = producto.tipoVenta || 'unidad';
+                          const multiplicadores = {
+                            'unidad': 1,
+                            'docena': 12,
+                            'media_docena': 6,
+                            'kilo': 1,
+                            'porcion': 1
+                          };
+                          const multiplicador = multiplicadores[tipoVenta] || 1;
+                          const precioRealPorUnidad = tipoVenta === 'docena' ? producto.precioVentaPorUnidad / 12 : 
+                                                      tipoVenta === 'media_docena' ? producto.precioVentaPorUnidad / 6 : 
+                                                      producto.precioVentaPorUnidad;
+                          const gananciaCalculada = precioRealPorUnidad - totales.costoPorUnidad;
+                          const margenCalculado = precioRealPorUnidad > 0 ? (gananciaCalculada / precioRealPorUnidad * 100) : 0;
+                          
+                          return (
+                            <div style={{ padding: '0.75rem', backgroundColor: 'white', borderRadius: '8px' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', paddingBottom: '0.5rem', borderBottom: '1px solid #e0e0e0' }}>
+                                <span style={{ fontSize: '0.85rem', color: theme.textLight }}>
+                                  Precio por {tipoVenta}:
+                                </span>
+                                <span style={{ fontSize: '1rem', fontWeight: '700', color: theme.text }}>
+                                  {formatearMoneda(producto.precioVentaPorUnidad)}
+                                </span>
+                              </div>
+                              
+                              {(tipoVenta === 'docena' || tipoVenta === 'media_docena') && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.85rem' }}>
+                                  <span style={{ color: theme.textLight }}>Precio por unidad:</span>
+                                  <span style={{ fontWeight: '600', color: theme.text }}>
+                                    {formatearMoneda(precioRealPorUnidad)}
+                                  </span>
+                                </div>
+                              )}
+                              
+                              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem', paddingTop: '0.5rem', borderTop: '1px solid #e0e0e0' }}>
+                                <span style={{ fontSize: '0.85rem', color: gananciaCalculada >= 0 ? theme.success : theme.danger, fontWeight: '600' }}>
+                                  {gananciaCalculada >= 0 ? '✅ Ganancia por unidad:' : '⚠️ Pérdida por unidad:'}
+                                </span>
+                                <span style={{ fontSize: '1.1rem', fontWeight: '700', color: gananciaCalculada >= 0 ? theme.success : theme.danger }}>
+                                  {formatearMoneda(Math.abs(gananciaCalculada))}
+                                </span>
+                              </div>
+                              
+                              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                                <span style={{ fontSize: '0.8rem', color: theme.textLight }}>Margen:</span>
+                                <Badge variant={margenCalculado >= 20 ? 'success' : margenCalculado >= 10 ? 'warning' : 'danger'}>
+                                  {margenCalculado.toFixed(1)}%
+                                </Badge>
+                              </div>
+                              
+                              {/* Conversiones adicionales */}
+                              <div style={{ paddingTop: '0.5rem', borderTop: '1px solid #e0e0e0', fontSize: '0.85rem' }}>
+                                {tipoVenta === 'unidad' && (
+                                  <>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                                      <span style={{ color: theme.textLight }}>Precio por media docena:</span>
+                                      <span style={{ fontWeight: '600', color: theme.text }}>
+                                        {formatearMoneda(producto.precioVentaPorUnidad * 6)}
+                                      </span>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                                      <span style={{ color: theme.textLight }}>Precio por docena:</span>
+                                      <span style={{ fontWeight: '600', color: theme.text }}>
+                                        {formatearMoneda(producto.precioVentaPorUnidad * 12)}
+                                      </span>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                      <span style={{ color: theme.textLight }}>Ganancia por docena:</span>
+                                      <span style={{ fontWeight: '600', color: gananciaCalculada >= 0 ? theme.success : theme.danger }}>
+                                        {formatearMoneda(gananciaCalculada * 12)}
+                                      </span>
+                                    </div>
+                                  </>
+                                )}
+                                {tipoVenta === 'docena' && (
+                                  <>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                                      <span style={{ color: theme.textLight }}>Ganancia por docena:</span>
+                                      <span style={{ fontWeight: '600', color: gananciaCalculada >= 0 ? theme.success : theme.danger }}>
+                                        {formatearMoneda(gananciaCalculada * 12)}
+                                      </span>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                      <span style={{ color: theme.textLight }}>Ganancia por media docena:</span>
+                                      <span style={{ fontWeight: '600', color: gananciaCalculada >= 0 ? theme.success : theme.danger }}>
+                                        {formatearMoneda(gananciaCalculada * 6)}
+                                      </span>
+                                    </div>
+                                  </>
+                                )}
+                                {tipoVenta === 'media_docena' && (
+                                  <>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                                      <span style={{ color: theme.textLight }}>Ganancia por media docena:</span>
+                                      <span style={{ fontWeight: '600', color: gananciaCalculada >= 0 ? theme.success : theme.danger }}>
+                                        {formatearMoneda(gananciaCalculada * 6)}
+                                      </span>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                      <span style={{ color: theme.textLight }}>Ganancia por docena:</span>
+                                      <span style={{ fontWeight: '600', color: gananciaCalculada >= 0 ? theme.success : theme.danger }}>
+                                        {formatearMoneda(gananciaCalculada * 12)}
+                                      </span>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
                   </div>
