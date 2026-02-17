@@ -647,6 +647,7 @@ const RecetasView = ({ recetas, setRecetas, insumos, setInsumos, showModal, setS
 // ==================== COMPONENTE: VENTAS (Precios) ====================
 const VentasView = ({ recetas, packaging, insumos }) => {
   const [productos, setProductos] = useState([]);
+  const [tempPackaging, setTempPackaging] = useState({});
 
   const calcularCostoReceta = (receta) => {
     let costoTotal = 0;
@@ -668,32 +669,59 @@ const VentasView = ({ recetas, packaging, insumos }) => {
       recetaId: receta.id,
       nombreReceta: receta.nombre,
       costoReceta,
-      packagingId: '',
-      cantidadPackaging: 1,
-      costoPackaging: 0,
+      rendimientoUnidades: receta.rendimientoUnidades || 1,
+      unidadRendimiento: receta.unidadRendimiento || 'unidad',
+      packagings: [],
       porcentajeManoObra: 10,
       porcentajeServicios: 5,
       porcentajeDesechables: 3,
-      precioVenta: 0
+      precioVentaTotal: 0,
+      precioVentaPorUnidad: 0
     };
     setProductos([...productos, nuevoProducto]);
+    setTempPackaging({ ...tempPackaging, [nuevoProducto.id]: { id: '', cantidad: 1 } });
+  };
+
+  const agregarPackagingAProducto = (productoId) => {
+    const temp = tempPackaging[productoId];
+    if (temp?.id && temp.cantidad > 0) {
+      const pack = packaging.find(p => p.id === temp.id);
+      if (pack) {
+        setProductos(productos.map(p => {
+          if (p.id === productoId) {
+            return {
+              ...p,
+              packagings: [...p.packagings, {
+                id: temp.id,
+                nombre: pack.nombre,
+                cantidad: parseInt(temp.cantidad),
+                precio: pack.precio
+              }]
+            };
+          }
+          return p;
+        }));
+        setTempPackaging({ ...tempPackaging, [productoId]: { id: '', cantidad: 1 } });
+      }
+    }
+  };
+
+  const eliminarPackagingDeProducto = (productoId, packagingIndex) => {
+    setProductos(productos.map(p => {
+      if (p.id === productoId) {
+        return {
+          ...p,
+          packagings: p.packagings.filter((_, idx) => idx !== packagingIndex)
+        };
+      }
+      return p;
+    }));
   };
 
   const actualizarProducto = (id, campo, valor) => {
     setProductos(productos.map(p => {
       if (p.id === id) {
-        const updated = { ...p, [campo]: valor };
-        
-        if (campo === 'packagingId' || campo === 'cantidadPackaging') {
-          if (updated.packagingId) {
-            const pack = packaging.find(pk => pk.id === updated.packagingId);
-            updated.costoPackaging = pack ? (pack.precio * updated.cantidadPackaging) : 0;
-          } else {
-            updated.costoPackaging = 0;
-          }
-        }
-        
-        return updated;
+        return { ...p, [campo]: valor };
       }
       return p;
     }));
@@ -701,25 +729,43 @@ const VentasView = ({ recetas, packaging, insumos }) => {
 
   const eliminarProducto = (id) => {
     setProductos(productos.filter(p => p.id !== id));
+    const newTemp = { ...tempPackaging };
+    delete newTemp[id];
+    setTempPackaging(newTemp);
   };
 
   const calcularTotales = (producto) => {
-    const baseRecetaPackaging = producto.costoReceta + producto.costoPackaging;
+    const costoPackagingTotal = producto.packagings.reduce((sum, p) => sum + (p.precio * p.cantidad), 0);
+    const baseRecetaPackaging = producto.costoReceta + costoPackagingTotal;
     const costoManoObra = baseRecetaPackaging * (producto.porcentajeManoObra / 100);
     const costoServicios = baseRecetaPackaging * (producto.porcentajeServicios / 100);
     const costoDesechables = baseRecetaPackaging * (producto.porcentajeDesechables / 100);
     const costoTotal = baseRecetaPackaging + costoManoObra + costoServicios + costoDesechables;
-    const ganancia = producto.precioVenta - costoTotal;
-    const margen = producto.precioVenta > 0 ? (ganancia / producto.precioVenta * 100) : 0;
+    
+    // Costos por unidad
+    const costoPorUnidad = costoTotal / (producto.rendimientoUnidades || 1);
+    const costoPorDocena = producto.unidadRendimiento === 'unidad' ? costoPorUnidad * 12 : 0;
+    
+    // Ganancias
+    const gananciaTotal = producto.precioVentaTotal - costoTotal;
+    const margenTotal = producto.precioVentaTotal > 0 ? (gananciaTotal / producto.precioVentaTotal * 100) : 0;
+    
+    const gananciaPorUnidad = producto.precioVentaPorUnidad - costoPorUnidad;
+    const margenPorUnidad = producto.precioVentaPorUnidad > 0 ? (gananciaPorUnidad / producto.precioVentaPorUnidad * 100) : 0;
     
     return {
       baseRecetaPackaging,
+      costoPackagingTotal,
       costoManoObra,
       costoServicios,
       costoDesechables,
       costoTotal,
-      ganancia,
-      margen
+      costoPorUnidad,
+      costoPorDocena,
+      gananciaTotal,
+      margenTotal,
+      gananciaPorUnidad,
+      margenPorUnidad
     };
   };
 
@@ -731,7 +777,7 @@ const VentasView = ({ recetas, packaging, insumos }) => {
             Cálculo de Precios de Venta
           </h2>
           <p style={{ color: theme.textLight, margin: 0 }}>
-            Calcula precios con todos los costos incluidos
+            Calcula precios con rendimiento y múltiples packagings
           </p>
         </div>
       </div>
@@ -769,9 +815,15 @@ const VentasView = ({ recetas, packaging, insumos }) => {
               return (
                 <Card key={producto.id}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
-                    <h3 style={{ fontSize: '1.3rem', fontWeight: '700', color: theme.text, margin: 0 }}>
-                      {producto.nombreReceta}
-                    </h3>
+                    <div>
+                      <h3 style={{ fontSize: '1.3rem', fontWeight: '700', color: theme.text, margin: '0 0 0.5rem 0' }}>
+                        {producto.nombreReceta}
+                      </h3>
+                      <div style={{ fontSize: '0.9rem', color: theme.textLight }}>
+                        🍰 Rinde: {producto.rendimientoUnidades} {producto.unidadRendimiento}(es)
+                        {producto.unidadRendimiento === 'docena' && ` (${producto.rendimientoUnidades * 12} unidades)`}
+                      </div>
+                    </div>
                     <Button
                       size="sm"
                       variant="danger"
@@ -789,46 +841,72 @@ const VentasView = ({ recetas, packaging, insumos }) => {
                       </h4>
                       <div style={{ display: 'grid', gap: '0.75rem', fontSize: '0.95rem' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span style={{ color: theme.textLight }}>Costo de la receta:</span>
+                          <span style={{ color: theme.textLight }}>Costo de la receta completa:</span>
                           <span style={{ fontWeight: '600', color: theme.text }}>
                             {formatearMoneda(producto.costoReceta)}
                           </span>
                         </div>
                         
+                        {/* MÚLTIPLES PACKAGINGS */}
                         <div style={{ paddingTop: '0.75rem', borderTop: `1px solid ${theme.border}` }}>
-                          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '0.75rem', marginBottom: '0.5rem' }}>
+                          <h5 style={{ fontSize: '0.9rem', fontWeight: '600', color: theme.text, marginBottom: '0.75rem' }}>
+                            📦 Packagings (podés agregar varios)
+                          </h5>
+                          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr auto', gap: '0.5rem', marginBottom: '0.75rem' }}>
                             <Select
-                              label="Packaging"
-                              value={producto.packagingId}
-                              onChange={e => actualizarProducto(producto.id, 'packagingId', e.target.value)}
+                              value={tempPackaging[producto.id]?.id || ''}
+                              onChange={e => setTempPackaging({ ...tempPackaging, [producto.id]: { ...tempPackaging[producto.id], id: e.target.value } })}
                               style={{ fontSize: '0.9rem' }}
                             >
-                              <option value="">Ninguno ($0)</option>
+                              <option value="">Seleccionar packaging...</option>
                               {packaging.map(pack => (
                                 <option key={pack.id} value={pack.id}>
-                                  {pack.nombre} ({formatearMoneda(pack.precio)})
+                                  {pack.nombre} - {formatearMoneda(pack.precio)}
                                 </option>
                               ))}
                             </Select>
                             <Input
-                              label="Cantidad"
                               type="number"
-                              step="0.01"
-                              min="0"
-                              value={producto.cantidadPackaging}
-                              onChange={e => actualizarProducto(producto.id, 'cantidadPackaging', parseFloat(e.target.value) || 1)}
-                              disabled={!producto.packagingId}
+                              step="1"
+                              min="1"
+                              placeholder="Cantidad"
+                              value={tempPackaging[producto.id]?.cantidad || 1}
+                              onChange={e => setTempPackaging({ ...tempPackaging, [producto.id]: { ...tempPackaging[producto.id], cantidad: e.target.value } })}
                               style={{ fontSize: '0.9rem' }}
                             />
-                            <div>
-                              <label style={{ display: 'block', fontSize: '0.85rem', color: theme.textLight, marginBottom: '0.5rem' }}>
-                                Costo
-                              </label>
-                              <div style={{ padding: '0.75rem', backgroundColor: theme.secondary, borderRadius: '6px', fontWeight: '600', textAlign: 'center' }}>
-                                {formatearMoneda(producto.costoPackaging)}
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={() => agregarPackagingAProducto(producto.id)}
+                              disabled={!tempPackaging[producto.id]?.id}
+                              icon={Plus}
+                              style={{ padding: '0.75rem 1rem', minWidth: 'auto' }}
+                            />
+                          </div>
+                          
+                          {producto.packagings.length > 0 && (
+                            <div style={{ display: 'grid', gap: '0.5rem' }}>
+                              {producto.packagings.map((pack, idx) => (
+                                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', backgroundColor: 'white', borderRadius: '8px', border: `1px solid ${theme.border}` }}>
+                                  <span style={{ fontWeight: '600', fontSize: '0.9rem' }}>{pack.nombre}</span>
+                                  <span style={{ fontSize: '0.85rem', color: theme.textLight }}>
+                                    Cant: {pack.cantidad} × {formatearMoneda(pack.precio)} = {formatearMoneda(pack.cantidad * pack.precio)}
+                                  </span>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="danger"
+                                    icon={Trash2}
+                                    onClick={() => eliminarPackagingDeProducto(producto.id, idx)}
+                                    style={{ padding: '0.4rem', minWidth: 'auto' }}
+                                  />
+                                </div>
+                              ))}
+                              <div style={{ padding: '0.5rem', backgroundColor: theme.secondary, borderRadius: '6px', fontWeight: '600', textAlign: 'right', fontSize: '0.9rem' }}>
+                                Total packaging: {formatearMoneda(totales.costoPackagingTotal)}
                               </div>
                             </div>
-                          </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -862,47 +940,121 @@ const VentasView = ({ recetas, packaging, insumos }) => {
                       </div>
                     </div>
 
-                    {/* Totales y Precio de Venta */}
-                    <div style={{ backgroundColor: theme.secondary, borderRadius: '12px', padding: '1.5rem', border: `2px solid ${theme.primary}` }}>
-                      <div style={{ display: 'grid', gap: '1rem' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '1rem', borderBottom: `2px solid ${theme.primary}` }}>
-                          <span style={{ fontSize: '1.1rem', fontWeight: '600', color: theme.text }}>
-                            COSTO TOTAL:
-                          </span>
-                          <span style={{ fontSize: '2rem', fontWeight: '700', color: theme.primary }}>
+                    {/* Resumen de Costos */}
+                    <div style={{ backgroundColor: '#E3F2FD', borderRadius: '12px', padding: '1.25rem', border: '2px solid #2196F3' }}>
+                      <h4 style={{ fontSize: '1rem', fontWeight: '600', color: theme.text, marginBottom: '1rem' }}>
+                        📋 Resumen de Costos
+                      </h4>
+                      <div style={{ display: 'grid', gap: '0.5rem', fontSize: '0.9rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.5rem', borderBottom: '1px solid #2196F3' }}>
+                          <span style={{ fontWeight: '700', color: theme.text }}>COSTO TOTAL RECETA:</span>
+                          <span style={{ fontWeight: '700', fontSize: '1.25rem', color: '#2196F3' }}>
                             {formatearMoneda(totales.costoTotal)}
                           </span>
                         </div>
-                        <div>
-                          <label style={{ display: 'block', fontSize: '0.95rem', fontWeight: '600', color: theme.text, marginBottom: '0.75rem' }}>
-                            💵 Precio de Venta:
-                          </label>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={producto.precioVenta}
-                            onChange={e => actualizarProducto(producto.id, 'precioVenta', parseFloat(e.target.value) || 0)}
-                            placeholder="0.00"
-                            style={{ fontSize: '1.25rem', fontWeight: '700', textAlign: 'center' }}
-                          />
+                        <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '0.5rem' }}>
+                          <span style={{ color: theme.textLight }}>Costo por {producto.unidadRendimiento}:</span>
+                          <span style={{ fontWeight: '600', color: theme.text }}>
+                            {formatearMoneda(totales.costoPorUnidad)}
+                          </span>
                         </div>
-                        {producto.precioVenta > 0 && (
-                          <div style={{ paddingTop: '1rem', borderTop: `1px solid ${theme.primary}` }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                              <span style={{ fontSize: '1rem', fontWeight: '600', color: totales.ganancia >= 0 ? theme.primary : theme.danger }}>
-                                {totales.ganancia >= 0 ? '✅ GANANCIA:' : '⚠️ PÉRDIDA:'}
+                        {producto.unidadRendimiento === 'unidad' && producto.rendimientoUnidades >= 12 && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: theme.textLight }}>Costo por docena:</span>
+                            <span style={{ fontWeight: '600', color: theme.text }}>
+                              {formatearMoneda(totales.costoPorDocena)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Precios de Venta */}
+                    <div style={{ backgroundColor: theme.secondary, borderRadius: '12px', padding: '1.5rem', border: `2px solid ${theme.primary}` }}>
+                      <h4 style={{ fontSize: '1rem', fontWeight: '600', color: theme.text, marginBottom: '1rem' }}>
+                        💵 Precios de Venta
+                      </h4>
+                      
+                      {/* Precio Total */}
+                      <div style={{ marginBottom: '1.5rem' }}>
+                        <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '600', color: theme.text, marginBottom: '0.5rem' }}>
+                          Precio total de la receta ({producto.rendimientoUnidades} {producto.unidadRendimiento}es):
+                        </label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={producto.precioVentaTotal}
+                          onChange={e => actualizarProducto(producto.id, 'precioVentaTotal', parseFloat(e.target.value) || 0)}
+                          placeholder="0.00"
+                          style={{ fontSize: '1.25rem', fontWeight: '700', textAlign: 'center' }}
+                        />
+                        {producto.precioVentaTotal > 0 && (
+                          <div style={{ marginTop: '0.75rem', padding: '0.75rem', backgroundColor: 'white', borderRadius: '8px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                              <span style={{ fontSize: '0.85rem', color: totales.gananciaTotal >= 0 ? theme.success : theme.danger, fontWeight: '600' }}>
+                                {totales.gananciaTotal >= 0 ? '✅ Ganancia Total:' : '⚠️ Pérdida Total:'}
                               </span>
-                              <span style={{ fontSize: '1.5rem', fontWeight: '700', color: totales.ganancia >= 0 ? theme.primary : theme.danger }}>
-                                {formatearMoneda(Math.abs(totales.ganancia))}
+                              <span style={{ fontSize: '1.1rem', fontWeight: '700', color: totales.gananciaTotal >= 0 ? theme.success : theme.danger }}>
+                                {formatearMoneda(Math.abs(totales.gananciaTotal))}
                               </span>
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                              <span style={{ fontSize: '0.9rem', color: theme.textLight }}>Margen de ganancia:</span>
-                              <Badge variant={totales.margen >= 20 ? 'success' : totales.margen >= 10 ? 'warning' : 'danger'}>
-                                {totales.margen.toFixed(1)}%
+                              <span style={{ fontSize: '0.8rem', color: theme.textLight }}>Margen:</span>
+                              <Badge variant={totales.margenTotal >= 20 ? 'success' : totales.margenTotal >= 10 ? 'warning' : 'danger'}>
+                                {totales.margenTotal.toFixed(1)}%
                               </Badge>
                             </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Precio Por Unidad */}
+                      <div style={{ paddingTop: '1rem', borderTop: `2px solid ${theme.primary}` }}>
+                        <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '600', color: theme.text, marginBottom: '0.5rem' }}>
+                          Precio por {producto.unidadRendimiento}:
+                        </label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={producto.precioVentaPorUnidad}
+                          onChange={e => actualizarProducto(producto.id, 'precioVentaPorUnidad', parseFloat(e.target.value) || 0)}
+                          placeholder="0.00"
+                          style={{ fontSize: '1.25rem', fontWeight: '700', textAlign: 'center' }}
+                        />
+                        {producto.precioVentaPorUnidad > 0 && (
+                          <div style={{ marginTop: '0.75rem', padding: '0.75rem', backgroundColor: 'white', borderRadius: '8px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                              <span style={{ fontSize: '0.85rem', color: totales.gananciaPorUnidad >= 0 ? theme.success : theme.danger, fontWeight: '600' }}>
+                                {totales.gananciaPorUnidad >= 0 ? '✅ Ganancia por unidad:' : '⚠️ Pérdida por unidad:'}
+                              </span>
+                              <span style={{ fontSize: '1.1rem', fontWeight: '700', color: totales.gananciaPorUnidad >= 0 ? theme.success : theme.danger }}>
+                                {formatearMoneda(Math.abs(totales.gananciaPorUnidad))}
+                              </span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                              <span style={{ fontSize: '0.8rem', color: theme.textLight }}>Margen:</span>
+                              <Badge variant={totales.margenPorUnidad >= 20 ? 'success' : totales.margenPorUnidad >= 10 ? 'warning' : 'danger'}>
+                                {totales.margenPorUnidad.toFixed(1)}%
+                              </Badge>
+                            </div>
+                            {producto.unidadRendimiento === 'unidad' && (
+                              <div style={{ paddingTop: '0.5rem', borderTop: '1px solid #e0e0e0' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                                  <span style={{ color: theme.textLight }}>Precio por docena:</span>
+                                  <span style={{ fontWeight: '600', color: theme.text }}>
+                                    {formatearMoneda(producto.precioVentaPorUnidad * 12)}
+                                  </span>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                                  <span style={{ color: theme.textLight }}>Ganancia por docena:</span>
+                                  <span style={{ fontWeight: '600', color: totales.gananciaPorUnidad >= 0 ? theme.success : theme.danger }}>
+                                    {formatearMoneda(totales.gananciaPorUnidad * 12)}
+                                  </span>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
