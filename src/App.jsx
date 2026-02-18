@@ -39,14 +39,17 @@ const generarPDFVentas = (ventas, titulo) => {
   // Título
   doc.setFontSize(18);
   doc.setTextColor(90, 124, 67);
-  doc.text('Esencia Nutri PRO', 105, 15, { align: 'center' });
-  
-  doc.setFontSize(14);
-  doc.setTextColor(0, 0, 0);
-  doc.text(`Reporte de Ventas - ${titulo}`, 105, 25, { align: 'center' });
+  doc.text('ESENCIA NUTRI - KIOSCO SALUDABLE', 105, 15, { align: 'center' });
   
   doc.setFontSize(10);
-  doc.text(`Generado: ${new Date().toLocaleDateString('es-AR')}`, 105, 32, { align: 'center' });
+  doc.setTextColor(0, 0, 0);
+  doc.text('Cyntia Otazu Montiel', 105, 22, { align: 'center' });
+  
+  doc.setFontSize(14);
+  doc.text(`Reporte de Ventas - ${titulo}`, 105, 32, { align: 'center' });
+  
+  doc.setFontSize(10);
+  doc.text(`Generado: ${new Date().toLocaleDateString('es-AR')}`, 105, 39, { align: 'center' });
   
   // Estadísticas
   const totalVendido = ventas.reduce((sum, v) => sum + v.precioVenta, 0);
@@ -321,7 +324,7 @@ const PackagingView = ({ packaging, setPackaging, showModal, setShowModal, editi
 };
 
 // ==================== COMPONENTE: RECETAS (CON STOCK Y PRODUCCIÓN) ====================
-const RecetasView = ({ recetas, setRecetas, insumos, setInsumos, showModal, setShowModal, editingItem, setEditingItem }) => {
+const RecetasView = ({ recetas, setRecetas, insumos, setInsumos, showModal, setShowModal, editingItem, setEditingItem, agendaProduccion, setAgendaProduccion }) => {
   const [formData, setFormData] = useState({ nombre: '', ingredientes: [], imagen: '', fechaCreacion: new Date().toISOString().split('T')[0], stock: 0, rendimientoUnidades: 1, unidadRendimiento: 'unidad' });
   const [selectedInsumo, setSelectedInsumo] = useState('');
   const [cantidadInsumo, setCantidadInsumo] = useState('');
@@ -455,6 +458,21 @@ const RecetasView = ({ recetas, setRecetas, insumos, setInsumos, showModal, setS
     
     setInsumos(nuevosInsumos);
     setRecetas(nuevasRecetas);
+    
+    // REGISTRAR EN AGENDA DE PRODUCCIÓN
+    const registroAgenda = {
+      id: generarId(),
+      recetaId: receta.id,
+      recetaNombre: receta.nombre,
+      cantidadUnidades: cantidadRealUnidades,
+      tipoProduccion: tipoProduccion === 'completa' ? 'Receta completa' : 'Unidades sueltas',
+      cantidadProducida: tipoProduccion === 'completa' ? `${cantidadProducir} receta(s)` : `${cantidadProducir} unidad(es)`,
+      fecha: new Date().toISOString().split('T')[0],
+      hora: new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }),
+      timestamp: new Date().toISOString()
+    };
+    setAgendaProduccion([registroAgenda, ...agendaProduccion]);
+    
     setShowProducirModal(false);
     setCantidadProducir(1);
     setTipoProduccion('completa');
@@ -803,7 +821,7 @@ const RecetasView = ({ recetas, setRecetas, insumos, setInsumos, showModal, setS
   );
 };
 // ==================== COMPONENTE: VENTAS (Precios) ====================
-const VentasView = ({ recetas, packaging, insumos }) => {
+const VentasView = ({ recetas, packaging, insumos, preciosGuardados, setPreciosGuardados }) => {
   const [productos, setProductos] = useState([]);
   const [tempPackaging, setTempPackaging] = useState({});
 
@@ -987,9 +1005,28 @@ const VentasView = ({ recetas, packaging, insumos }) => {
                         {producto.unidadRendimiento === 'docena' && ` (${producto.rendimientoUnidades * 12} unidades)`}
                       </div>
                     </div>
-                    <Button
-                      size="sm"
-                      variant="danger"
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        icon={Save}
+                        onClick={() => {
+                          const precioGuardado = {
+                            id: generarId(),
+                            ...producto,
+                            ...totales,
+                            fechaGuardado: new Date().toISOString()
+                          };
+                          setPreciosGuardados([precioGuardado, ...preciosGuardados]);
+                          alert('✅ Precio guardado exitosamente!');
+                        }}
+                        style={{ padding: '0.5rem', minWidth: 'auto' }}
+                      >
+                        Guardar
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="danger"
                       icon={Trash2}
                       onClick={() => eliminarProducto(producto.id)}
                       style={{ padding: '0.5rem', minWidth: 'auto' }}
@@ -1334,6 +1371,93 @@ const VentasView = ({ recetas, packaging, insumos }) => {
                 Selecciona una receta arriba para comenzar a calcular precios
               </p>
             </Card>
+          )}
+          
+          {/* PRECIOS GUARDADOS */}
+          {preciosGuardados.length > 0 && (
+            <div style={{ marginTop: '3rem' }}>
+              <h3 style={{ fontSize: '1.5rem', fontWeight: '700', color: theme.text, marginBottom: '1.5rem', paddingBottom: '0.75rem', borderBottom: `2px solid ${theme.primary}` }}>
+                💾 Precios Guardados
+              </h3>
+              <div style={{ display: 'grid', gap: '1.5rem' }}>
+                {preciosGuardados.map(precio => (
+                  <Card key={precio.id} style={{ position: 'relative' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '1rem' }}>
+                      <div>
+                        <h4 style={{ fontSize: '1.2rem', fontWeight: '600', color: theme.text, margin: '0 0 0.5rem 0' }}>
+                          {precio.nombreReceta}
+                        </h4>
+                        <div style={{ fontSize: '0.85rem', color: theme.textLight }}>
+                          Guardado: {new Date(precio.fechaGuardado).toLocaleDateString('es-AR')} {new Date(precio.fechaGuardado).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="danger"
+                        icon={Trash2}
+                        onClick={() => {
+                          if (confirm('¿Eliminar este precio guardado?')) {
+                            setPreciosGuardados(preciosGuardados.filter(p => p.id !== precio.id));
+                          }
+                        }}
+                        style={{ padding: '0.5rem', minWidth: 'auto' }}
+                      />
+                    </div>
+                    
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', fontSize: '0.9rem' }}>
+                      <div style={{ padding: '1rem', backgroundColor: theme.background, borderRadius: '8px' }}>
+                        <div style={{ color: theme.textLight, marginBottom: '0.25rem' }}>Costo Total:</div>
+                        <div style={{ fontSize: '1.1rem', fontWeight: '700', color: theme.text }}>
+                          {formatearMoneda(precio.costoTotal)}
+                        </div>
+                        <div style={{ color: theme.textLight, fontSize: '0.8rem', marginTop: '0.25rem' }}>
+                          Por unidad: {formatearMoneda(precio.costoPorUnidad)}
+                        </div>
+                      </div>
+                      
+                      <div style={{ padding: '1rem', backgroundColor: theme.secondary, borderRadius: '8px', border: `2px solid ${theme.primary}` }}>
+                        <div style={{ color: theme.textLight, marginBottom: '0.25rem' }}>Precio Total:</div>
+                        <div style={{ fontSize: '1.1rem', fontWeight: '700', color: theme.primary }}>
+                          {formatearMoneda(precio.precioVentaTotal || 0)}
+                        </div>
+                        <div style={{ color: theme.textLight, fontSize: '0.8rem', marginTop: '0.25rem' }}>
+                          Por unidad: {formatearMoneda(precio.precioVentaPorUnidad || 0)}
+                        </div>
+                      </div>
+                      
+                      <div style={{ padding: '1rem', backgroundColor: precio.gananciaTotal >= 0 ? '#E8F5E9' : '#FFEBEE', borderRadius: '8px', border: `2px solid ${precio.gananciaTotal >= 0 ? theme.success : theme.danger}` }}>
+                        <div style={{ color: theme.textLight, marginBottom: '0.25rem' }}>
+                          {precio.gananciaTotal >= 0 ? 'Ganancia:' : 'Pérdida:'}
+                        </div>
+                        <div style={{ fontSize: '1.1rem', fontWeight: '700', color: precio.gananciaTotal >= 0 ? theme.success : theme.danger }}>
+                          {formatearMoneda(Math.abs(precio.gananciaTotal))}
+                        </div>
+                        <div style={{ fontSize: '0.8rem', marginTop: '0.25rem' }}>
+                          <Badge variant={precio.margenTotal >= 20 ? 'success' : precio.margenTotal >= 10 ? 'warning' : 'danger'}>
+                            Margen: {precio.margenTotal.toFixed(1)}%
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {precio.packagings && precio.packagings.length > 0 && (
+                      <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: `1px solid ${theme.border}` }}>
+                        <div style={{ fontSize: '0.85rem', color: theme.textLight, marginBottom: '0.5rem' }}>
+                          📦 Packagings incluidos:
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                          {precio.packagings.map((pack, idx) => (
+                            <Badge key={idx} variant="secondary">
+                              {pack.nombre} × {pack.cantidad}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </Card>
+                ))}
+              </div>
+            </div>
           )}
         </>
       )}
@@ -1854,7 +1978,7 @@ const HistorialView = ({ ventasRealizadas, setVentasRealizadas, recetas, setRece
 };
 
 // ==================== COMPONENTE: DASHBOARD ====================
-const DashboardView = ({ ventasRealizadas, recetas, insumos }) => {
+const DashboardView = ({ ventasRealizadas, recetas, insumos, agendaProduccion }) => {
   const hoy = new Date().toISOString().split('T')[0];
   const ventasHoy = ventasRealizadas.filter(v => v.fecha === hoy);
   const totalHoy = ventasHoy.reduce((sum, v) => sum + v.precioVenta, 0);
@@ -1911,6 +2035,177 @@ const DashboardView = ({ ventasRealizadas, recetas, insumos }) => {
           <p style={{ fontSize: '1rem', color: theme.textLight }}>Comienza registrando ventas en "Ventas"</p>
         </Card>
       )}
+
+      {/* Gráfico de Producción */}
+      {agendaProduccion && agendaProduccion.length > 0 && (() => {
+        const produccionPorDia = {};
+        agendaProduccion.forEach(r => {
+          const fecha = r.fecha;
+          produccionPorDia[fecha] = (produccionPorDia[fecha] || 0) + r.cantidadUnidades;
+        });
+        
+        const datosProduccion = Object.entries(produccionPorDia)
+          .map(([fecha, cantidad]) => ({ 
+            fecha: new Date(fecha).toLocaleDateString('es-AR', { day: '2-digit', month: 'short' }), 
+            cantidad 
+          }))
+          .slice(-15); // Últimos 15 días
+        
+        return (
+          <Card style={{ padding: '1.5rem', marginTop: '2rem' }}>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: '600', color: theme.text, marginBottom: '1.5rem' }}>
+              🏭 Producción Diaria (Últimos 15 días)
+            </h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <AreaChart data={datosProduccion}>
+                <CartesianGrid strokeDasharray="3 3" stroke={theme.border} />
+                <XAxis dataKey="fecha" tick={{ fontSize: 12 }} />
+                <YAxis />
+                <Tooltip contentStyle={{ backgroundColor: theme.card, border: `1px solid ${theme.border}`, borderRadius: '8px' }} />
+                <Area type="monotone" dataKey="cantidad" stroke={theme.accent} fill={theme.secondary} strokeWidth={2} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </Card>
+        );
+      })()}
+    </div>
+  );
+};
+
+// ==================== COMPONENTE: AGENDA DE PRODUCCIÓN ====================
+const AgendaView = ({ agendaProduccion }) => {
+  const [filtroReceta, setFiltroReceta] = useState('');
+  const [filtroFecha, setFiltroFecha] = useState('');
+
+  const registrosFiltrados = agendaProduccion.filter(registro => {
+    const matchReceta = !filtroReceta || registro.recetaNombre.toLowerCase().includes(filtroReceta.toLowerCase());
+    const matchFecha = !filtroFecha || registro.fecha === filtroFecha;
+    return matchReceta && matchFecha;
+  });
+
+  // Agrupar por fecha para el gráfico
+  const produccionPorDia = {};
+  agendaProduccion.forEach(r => {
+    const fecha = formatearFecha(r.fecha);
+    produccionPorDia[fecha] = (produccionPorDia[fecha] || 0) + r.cantidadUnidades;
+  });
+  
+  const datosGrafico = Object.entries(produccionPorDia)
+    .map(([fecha, cantidad]) => ({ fecha, cantidad }))
+    .slice(-30); // Últimos 30 días
+
+  return (
+    <div className="fade-in">
+      <div style={{ marginBottom: '2rem' }}>
+        <h2 style={{ fontSize: '1.75rem', fontWeight: '700', color: theme.text, margin: '0 0 0.5rem 0' }}>
+          📅 Agenda de Producción
+        </h2>
+        <p style={{ color: theme.textLight, margin: 0 }}>
+          Registro automático de todas las producciones realizadas
+        </p>
+      </div>
+
+      {/* Filtros */}
+      <Card style={{ marginBottom: '2rem', padding: '1.5rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <Input
+            label="🔍 Buscar por receta"
+            placeholder="Nombre de receta..."
+            value={filtroReceta}
+            onChange={e => setFiltroReceta(e.target.value)}
+          />
+          <Input
+            label="📅 Filtrar por fecha"
+            type="date"
+            value={filtroFecha}
+            onChange={e => setFiltroFecha(e.target.value)}
+          />
+        </div>
+      </Card>
+
+      {/* Gráfico de producción */}
+      {datosGrafico.length > 0 && (
+        <Card style={{ padding: '1.5rem', marginBottom: '2rem' }}>
+          <h3 style={{ fontSize: '1.1rem', fontWeight: '600', color: theme.text, marginBottom: '1.5rem' }}>
+            📊 Producción por Día (Últimos 30 días)
+          </h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={datosGrafico}>
+              <CartesianGrid strokeDasharray="3 3" stroke={theme.border} />
+              <XAxis dataKey="fecha" tick={{ fontSize: 11 }} angle={-45} textAnchor="end" height={80} />
+              <YAxis />
+              <Tooltip contentStyle={{ backgroundColor: theme.card, border: `1px solid ${theme.border}`, borderRadius: '8px' }} />
+              <Line type="monotone" dataKey="cantidad" stroke={theme.primary} strokeWidth={2} dot={{ fill: theme.primary }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </Card>
+      )}
+
+      {/* Lista de registros */}
+      {registrosFiltrados.length === 0 ? (
+        <Card style={{ textAlign: 'center', padding: '4rem 2rem' }}>
+          <Calculator size={64} color={theme.textLight} style={{ margin: '0 auto 1.5rem' }} />
+          <h3 style={{ fontSize: '1.3rem', fontWeight: '600', color: theme.text, marginBottom: '0.75rem' }}>
+            No hay producciones registradas
+          </h3>
+          <p style={{ fontSize: '1rem', color: theme.textLight }}>
+            Las producciones se registran automáticamente cuando produces en "Recetas"
+          </p>
+        </Card>
+      ) : (
+        <div style={{ display: 'grid', gap: '1rem' }}>
+          {registrosFiltrados.map(registro => (
+            <Card key={registro.id}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: '1.5rem', alignItems: 'center' }}>
+                <div style={{ 
+                  width: '60px', 
+                  height: '60px', 
+                  borderRadius: '12px', 
+                  backgroundColor: theme.secondary,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  border: `2px solid ${theme.primary}`
+                }}>
+                  <div style={{ fontSize: '0.7rem', color: theme.textLight, fontWeight: '600' }}>
+                    {new Date(registro.timestamp).toLocaleDateString('es-AR', { day: '2-digit' })}
+                  </div>
+                  <div style={{ fontSize: '0.65rem', color: theme.textLight }}>
+                    {new Date(registro.timestamp).toLocaleDateString('es-AR', { month: 'short' })}
+                  </div>
+                </div>
+                
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
+                    <h3 style={{ fontSize: '1.1rem', fontWeight: '600', color: theme.text, margin: 0 }}>
+                      {registro.recetaNombre}
+                    </h3>
+                    <Badge variant="success">{registro.cantidadUnidades} unidades</Badge>
+                  </div>
+                  <div style={{ display: 'flex', gap: '1.5rem', fontSize: '0.85rem', color: theme.textLight' }}>
+                    <span>⏰ {registro.hora}</span>
+                    <span>📦 {registro.cantidadProducida}</span>
+                    <span>🔧 {registro.tipoProduccion}</span>
+                  </div>
+                </div>
+                
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '0.85rem', color: theme.textLight }}>
+                    {formatearFecha(registro.fecha)}
+                  </div>
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {registrosFiltrados.length > 0 && (
+        <div style={{ marginTop: '2rem', textAlign: 'center', color: theme.textLight, fontSize: '0.9rem' }}>
+          Mostrando {registrosFiltrados.length} de {agendaProduccion.length} registros
+        </div>
+      )}
     </div>
   );
 };
@@ -1922,12 +2217,15 @@ export default function App() {
   const [recetas, setRecetas] = useState([]);
   const [packaging, setPackaging] = useState([]);
   const [ventasRealizadas, setVentasRealizadas] = useState([]);
+  const [preciosGuardados, setPreciosGuardados] = useState([]);
+  const [agendaProduccion, setAgendaProduccion] = useState([]);
+  const [logoEmpresa, setLogoEmpresa] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
 
   useEffect(() => {
     try {
-      const keys = ['insumos', 'recetas', 'packaging', 'ventasRealizadas'];
+      const keys = ['insumos', 'recetas', 'packaging', 'ventasRealizadas', 'preciosGuardados', 'agendaProduccion', 'logoEmpresa'];
       keys.forEach(key => {
         const stored = localStorage.getItem(`esencia-${key}-v3`);
         if (stored) {
@@ -1936,6 +2234,9 @@ export default function App() {
           else if (key === 'recetas') setRecetas(data);
           else if (key === 'packaging') setPackaging(data);
           else if (key === 'ventasRealizadas') setVentasRealizadas(data);
+          else if (key === 'preciosGuardados') setPreciosGuardados(data);
+          else if (key === 'agendaProduccion') setAgendaProduccion(data);
+          else if (key === 'logoEmpresa') setLogoEmpresa(data);
         }
       });
     } catch (error) { console.log('Iniciando vacío'); }
@@ -1945,6 +2246,24 @@ export default function App() {
   useEffect(() => { if (recetas.length >= 0) localStorage.setItem('esencia-recetas-v3', JSON.stringify(recetas)); }, [recetas]);
   useEffect(() => { if (packaging.length >= 0) localStorage.setItem('esencia-packaging-v3', JSON.stringify(packaging)); }, [packaging]);
   useEffect(() => { if (ventasRealizadas.length >= 0) localStorage.setItem('esencia-ventasRealizadas-v3', JSON.stringify(ventasRealizadas)); }, [ventasRealizadas]);
+  useEffect(() => { if (preciosGuardados.length >= 0) localStorage.setItem('esencia-preciosGuardados-v3', JSON.stringify(preciosGuardados)); }, [preciosGuardados]);
+  useEffect(() => { if (agendaProduccion.length >= 0) localStorage.setItem('esencia-agendaProduccion-v3', JSON.stringify(agendaProduccion)); }, [agendaProduccion]);
+  useEffect(() => { localStorage.setItem('esencia-logoEmpresa-v3', JSON.stringify(logoEmpresa)); }, [logoEmpresa]);
+
+  const handleLogoChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 1 * 1024 * 1024) {
+        alert('⚠️ La imagen es muy grande. Máximo 1MB');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setLogoEmpresa(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const tabs = [
     { id: 'dashboard', name: 'Dashboard', icon: BarChart3 },
@@ -1952,19 +2271,85 @@ export default function App() {
     { id: 'packaging', name: 'Packaging', icon: Package },
     { id: 'recetas', name: 'Recetas', icon: ChefHat },
     { id: 'ventas', name: 'Precios', icon: DollarSign },
-    { id: 'historial', name: 'Ventas', icon: TrendingUp }
+    { id: 'historial', name: 'Ventas', icon: TrendingUp },
+    { id: 'agenda', name: 'Agenda', icon: Calculator }
   ];
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: theme.background }}>
       <header style={{ backgroundColor: theme.card, borderBottom: `2px solid ${theme.border}`, padding: '1.5rem 2rem', boxShadow: '0 2px 8px rgba(90,124,67,0.08)' }}>
-        <div style={{ maxWidth: '1400px', margin: '0 auto', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <div style={{ width: '60px', height: '60px', borderRadius: '12px', background: `linear-gradient(135deg, ${theme.primary}, ${theme.accent})`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <ChefHat size={32} color="white" />
+        <div style={{ maxWidth: '1400px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <div style={{ width: '60px', height: '60px', borderRadius: '12px', background: `linear-gradient(135deg, ${theme.primary}, ${theme.accent})`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <ChefHat size={32} color="white" />
+            </div>
+            <div>
+              <h1 style={{ fontSize: '1.75rem', fontWeight: '700', color: theme.text, margin: 0 }}>ESENCIA NUTRI - KIOSCO SALUDABLE</h1>
+              <p style={{ color: theme.textLight, margin: 0, fontSize: '0.9rem' }}>Cyntia Otazu Montiel</p>
+            </div>
           </div>
-          <div>
-            <h1 style={{ fontSize: '1.75rem', fontWeight: '700', color: theme.text, margin: 0 }}>Esencia Nutri PRO</h1>
-            <p style={{ color: theme.textLight, margin: 0, fontSize: '0.9rem' }}>Sistema con Stock de Recetas v3.1</p>
+          
+          {/* Logo de empresa */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            {logoEmpresa ? (
+              <div style={{ position: 'relative' }}>
+                <img 
+                  src={logoEmpresa} 
+                  alt="Logo" 
+                  style={{ 
+                    width: '80px', 
+                    height: '80px', 
+                    objectFit: 'contain', 
+                    borderRadius: '8px',
+                    border: `2px solid ${theme.border}`
+                  }} 
+                />
+                <button
+                  onClick={() => setLogoEmpresa('')}
+                  style={{
+                    position: 'absolute',
+                    top: '-8px',
+                    right: '-8px',
+                    background: theme.danger,
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '50%',
+                    width: '24px',
+                    height: '24px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '12px',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+            ) : (
+              <label style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '0.5rem',
+                padding: '0.5rem 1rem',
+                backgroundColor: theme.secondary,
+                borderRadius: '8px',
+                cursor: 'pointer',
+                border: `2px dashed ${theme.primary}`,
+                fontSize: '0.85rem',
+                color: theme.text
+              }}>
+                <Upload size={16} />
+                Subir Logo
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  onChange={handleLogoChange}
+                  style={{ display: 'none' }}
+                />
+              </label>
+            )}
           </div>
         </div>
       </header>
@@ -1984,13 +2369,15 @@ export default function App() {
       </nav>
 
       <main style={{ maxWidth: '1400px', margin: '0 auto', padding: '2rem' }}>
-        {activeTab === 'dashboard' && <DashboardView ventasRealizadas={ventasRealizadas} recetas={recetas} insumos={insumos} />}
+        {activeTab === 'dashboard' && <DashboardView ventasRealizadas={ventasRealizadas} recetas={recetas} insumos={insumos} agendaProduccion={agendaProduccion} />}
         {activeTab === 'insumos' && <InsumosView insumos={insumos} setInsumos={setInsumos} showModal={showModal} setShowModal={setShowModal} editingItem={editingItem} setEditingItem={setEditingItem} />}
         {activeTab === 'packaging' && <PackagingView packaging={packaging} setPackaging={setPackaging} showModal={showModal} setShowModal={setShowModal} editingItem={editingItem} setEditingItem={setEditingItem} />}
-        {activeTab === 'recetas' && <RecetasView recetas={recetas} setRecetas={setRecetas} insumos={insumos} setInsumos={setInsumos} showModal={showModal} setShowModal={setShowModal} editingItem={editingItem} setEditingItem={setEditingItem} />}
-        {activeTab === 'ventas' && <VentasView recetas={recetas} packaging={packaging} insumos={insumos} />}
+        {activeTab === 'recetas' && <RecetasView recetas={recetas} setRecetas={setRecetas} insumos={insumos} setInsumos={setInsumos} showModal={showModal} setShowModal={setShowModal} editingItem={editingItem} setEditingItem={setEditingItem} agendaProduccion={agendaProduccion} setAgendaProduccion={setAgendaProduccion} />}
+        {activeTab === 'ventas' && <VentasView recetas={recetas} packaging={packaging} insumos={insumos} preciosGuardados={preciosGuardados} setPreciosGuardados={setPreciosGuardados} />}
         {activeTab === 'historial' && <HistorialView ventasRealizadas={ventasRealizadas} setVentasRealizadas={setVentasRealizadas} recetas={recetas} setRecetas={setRecetas} insumos={insumos} setInsumos={setInsumos} packaging={packaging} setPackaging={setPackaging} />}
+        {activeTab === 'agenda' && <AgendaView agendaProduccion={agendaProduccion} />}
       </main>
     </div>
   );
 }
+
