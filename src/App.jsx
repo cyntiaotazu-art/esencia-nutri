@@ -1841,14 +1841,6 @@ const HistorialView = ({ ventasRealizadas, setVentasRealizadas, recetas, setRece
                 </Card>
               );
             })()}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginTop: '0.25rem' }}>
-                      <span style={{ color: theme.textLight }}>Costo total:</span>
-                      <span>{formatearMoneda(costoTotalVenta)}</span>
-                    </div>
-                  </div>
-                </Card>
-              );
-            })()}
 
             <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
               <Button variant="outline" onClick={resetForm} fullWidth>Cancelar</Button>
@@ -2002,4 +1994,3 @@ export default function App() {
     </div>
   );
 }
-
