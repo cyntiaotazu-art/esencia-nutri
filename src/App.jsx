@@ -390,13 +390,18 @@ const RecetasView = ({ recetas, setRecetas, insumos, setInsumos, showModal, setS
   const handleProducir = () => {
     const receta = recetaProducir;
     
+    // CALCULAR UNIDADES REALES considerando el tipo de unidad (unidad, docena, etc)
+    const unidadesPorRendimiento = receta.unidadRendimiento === 'docena' 
+      ? (receta.rendimientoUnidades || 1) * 12 
+      : (receta.rendimientoUnidades || 1);
+    
     // Calcular cantidad real a producir en unidades
     const cantidadRealUnidades = tipoProduccion === 'completa' 
-      ? cantidadProducir * (receta.rendimientoUnidades || 1)
+      ? cantidadProducir * unidadesPorRendimiento
       : cantidadProducir;
     
     // Factor de producción (qué fracción de la receta completa estamos haciendo)
-    const factorProduccion = cantidadRealUnidades / (receta.rendimientoUnidades || 1);
+    const factorProduccion = cantidadRealUnidades / unidadesPorRendimiento;
     
     // Verificar si hay suficientes insumos
     let puedoProducir = true;
@@ -530,24 +535,25 @@ const RecetasView = ({ recetas, setRecetas, insumos, setInsumos, showModal, setS
               <div style={{ backgroundColor: '#E3F2FD', borderRadius: '12px', padding: '1rem', marginBottom: '1rem', border: '2px solid #2196F3' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
                   <span style={{ fontSize: '0.9rem', color: theme.textLight, fontWeight: '500' }}>🍰 Rendimiento:</span>
-                  <span style={{ fontSize: '1.1rem', fontWeight: '700', color: '#2196F3' }}>{receta.rendimientoUnidades || 1} {receta.unidadRendimiento || 'unidad'}(es)</span>
+                  <span style={{ fontSize: '1.1rem', fontWeight: '700', color: '#2196F3' }}>
+                    {receta.rendimientoUnidades || 1} {receta.unidadRendimiento || 'unidad'}(es)
+                    {receta.unidadRendimiento === 'docena' && ` (${(receta.rendimientoUnidades || 1) * 12} unidades)`}
+                  </span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '0.5rem', borderTop: '1px solid #2196F3', fontSize: '0.9rem' }}>
-                  <span style={{ color: theme.textLight }}>Costo por {receta.unidadRendimiento || 'unidad'}:</span>
-                  <span style={{ fontWeight: '600', color: theme.text }}>{formatearMoneda(costo / (receta.rendimientoUnidades || 1))}</span>
+                  <span style={{ color: theme.textLight }}>Costo por unidad:</span>
+                  <span style={{ fontWeight: '600', color: theme.text }}>
+                    {formatearMoneda(costo / (receta.unidadRendimiento === 'docena' ? (receta.rendimientoUnidades || 1) * 12 : (receta.rendimientoUnidades || 1)))}
+                  </span>
                 </div>
-                {receta.unidadRendimiento === 'unidad' && (receta.rendimientoUnidades || 1) >= 12 && (
+                {(receta.unidadRendimiento === 'unidad' && (receta.rendimientoUnidades || 1) >= 12) || receta.unidadRendimiento === 'docena' ? (
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginTop: '0.25rem' }}>
                     <span style={{ color: theme.textLight }}>Costo por docena:</span>
-                    <span style={{ fontWeight: '600', color: theme.text }}>{formatearMoneda((costo / (receta.rendimientoUnidades || 1)) * 12)}</span>
+                    <span style={{ fontWeight: '600', color: theme.text }}>
+                      {formatearMoneda((costo / (receta.unidadRendimiento === 'docena' ? (receta.rendimientoUnidades || 1) * 12 : (receta.rendimientoUnidades || 1))) * 12)}
+                    </span>
                   </div>
-                )}
-                {receta.unidadRendimiento === 'docena' && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginTop: '0.25rem' }}>
-                    <span style={{ color: theme.textLight }}>Total unidades:</span>
-                    <span style={{ fontWeight: '600', color: theme.text }}>{(receta.rendimientoUnidades || 1) * 12} unidades</span>
-                  </div>
-                )}
+                ) : null}
               </div>
               <div><h4 style={{ fontSize: '0.9rem', fontWeight: '600', color: theme.text, marginBottom: '0.75rem' }}>Ingredientes ({receta.ingredientes.length})</h4>
                 <div style={{ display: 'grid', gap: '0.5rem', maxHeight: '150px', overflowY: 'auto' }}>
@@ -726,10 +732,13 @@ const RecetasView = ({ recetas, setRecetas, insumos, setInsumos, showModal, setS
               {recetaProducir.ingredientes.map(ing => {
                 const insumo = insumos.find(i => i.id === ing.idInsumo);
                 if (!insumo) return null;
+                const unidadesPorRendimiento = recetaProducir.unidadRendimiento === 'docena' 
+                  ? (recetaProducir.rendimientoUnidades || 1) * 12 
+                  : (recetaProducir.rendimientoUnidades || 1);
                 const cantidadRealUnidades = tipoProduccion === 'completa' 
-                  ? cantidadProducir * (recetaProducir.rendimientoUnidades || 1)
+                  ? cantidadProducir * unidadesPorRendimiento
                   : cantidadProducir;
-                const factorProduccion = cantidadRealUnidades / (recetaProducir.rendimientoUnidades || 1);
+                const factorProduccion = cantidadRealUnidades / unidadesPorRendimiento;
                 const cantidadNecesaria = convertirUnidad(ing.cantidad * factorProduccion, ing.unidad, insumo.unidadStock);
                 const suficiente = insumo.stock >= cantidadNecesaria;
                 return (
@@ -751,14 +760,25 @@ const RecetasView = ({ recetas, setRecetas, insumos, setInsumos, showModal, setS
               <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '0.75rem', borderTop: `1px solid ${theme.primary}` }}>
                 <span style={{ fontWeight: '600', color: theme.success }}>Stock después de producir:</span>
                 <span style={{ fontSize: '1.5rem', fontWeight: '700', color: theme.success }}>
-                  {recetaProducir.stock + (tipoProduccion === 'completa' 
-                    ? cantidadProducir * (recetaProducir.rendimientoUnidades || 1)
-                    : cantidadProducir)} unidades
+                  {(() => {
+                    const unidadesPorRendimiento = recetaProducir.unidadRendimiento === 'docena' 
+                      ? (recetaProducir.rendimientoUnidades || 1) * 12 
+                      : (recetaProducir.rendimientoUnidades || 1);
+                    const cantidadRealUnidades = tipoProduccion === 'completa' 
+                      ? cantidadProducir * unidadesPorRendimiento
+                      : cantidadProducir;
+                    return recetaProducir.stock + cantidadRealUnidades;
+                  })()} unidades
                 </span>
               </div>
               {tipoProduccion === 'completa' && (
                 <div style={{ fontSize: '0.85rem', color: theme.textLight, marginTop: '0.5rem', textAlign: 'center' }}>
-                  ({cantidadProducir} receta(s) = {cantidadProducir * (recetaProducir.rendimientoUnidades || 1)} unidades)
+                  ({cantidadProducir} receta(s) = {(() => {
+                    const unidadesPorRendimiento = recetaProducir.unidadRendimiento === 'docena' 
+                      ? (recetaProducir.rendimientoUnidades || 1) * 12 
+                      : (recetaProducir.rendimientoUnidades || 1);
+                    return cantidadProducir * unidadesPorRendimiento;
+                  })()} unidades)
                 </div>
               )}
             </Card>
@@ -766,9 +786,14 @@ const RecetasView = ({ recetas, setRecetas, insumos, setInsumos, showModal, setS
             <div style={{ display: 'flex', gap: '1rem' }}>
               <Button variant="outline" onClick={() => { setShowProducirModal(false); setCantidadProducir(1); setTipoProduccion('completa'); }} fullWidth>Cancelar</Button>
               <Button icon={PlayCircle} onClick={handleProducir} fullWidth>
-                Producir {tipoProduccion === 'completa' 
-                  ? `${cantidadProducir * (recetaProducir.rendimientoUnidades || 1)} unidades`
-                  : `${cantidadProducir} unidad(es)`}
+                Producir {(() => {
+                  const unidadesPorRendimiento = recetaProducir.unidadRendimiento === 'docena' 
+                    ? (recetaProducir.rendimientoUnidades || 1) * 12 
+                    : (recetaProducir.rendimientoUnidades || 1);
+                  return tipoProduccion === 'completa' 
+                    ? `${cantidadProducir * unidadesPorRendimiento} unidades`
+                    : `${cantidadProducir} unidad(es)`;
+                })()}
               </Button>
             </div>
           </div>
@@ -875,9 +900,14 @@ const VentasView = ({ recetas, packaging, insumos }) => {
     const costoDesechables = baseRecetaPackaging * (producto.porcentajeDesechables / 100);
     const costoTotal = baseRecetaPackaging + costoManoObra + costoServicios + costoDesechables;
     
+    // CONVERSIÓN CORRECTA DE DOCENA A UNIDAD
+    const unidadesPorRendimiento = producto.unidadRendimiento === 'docena' 
+      ? (producto.rendimientoUnidades || 1) * 12 
+      : (producto.rendimientoUnidades || 1);
+    
     // Costos por unidad
-    const costoPorUnidad = costoTotal / (producto.rendimientoUnidades || 1);
-    const costoPorDocena = producto.unidadRendimiento === 'unidad' ? costoPorUnidad * 12 : 0;
+    const costoPorUnidad = costoTotal / unidadesPorRendimiento;
+    const costoPorDocena = costoPorUnidad * 12;
     
     // Ganancias
     const gananciaTotal = producto.precioVentaTotal - costoTotal;
@@ -1318,7 +1348,7 @@ const HistorialView = ({ ventasRealizadas, setVentasRealizadas, recetas, setRece
     cliente: '',
     recetaId: '',
     cantidadUnidades: 1,
-    precioPorUnidad: 0,
+    precioTotal: 0,
     packagings: [],
     porcentajeManoObra: 0,
     porcentajeServicios: 0,
@@ -1363,11 +1393,10 @@ const HistorialView = ({ ventasRealizadas, setVentasRealizadas, recetas, setRece
   const registrarVenta = e => {
     e.preventDefault();
     const receta = recetas.find(r => r.id === formData.recetaId);
-    const costoReceta = calcularCostoReceta(receta);
     
     // VALIDAR STOCK DE RECETA
     if (receta.stock < formData.cantidadUnidades) {
-      alert(`⚠️ Stock insuficiente\n\nNecesitas: ${formData.cantidadUnidades} unidades\nTienes: ${receta.stock} unidades\n\n💡 Ve a "Recetas" y produce más unidades`);
+      alert(`⚠️ Stock insuficiente\n\nNecesitas: ${formData.cantidadUnidades} unidades\nTienes: ${receta.stock} unidades\n\n💡 Ve a "Recetas" y produce más`);
       return;
     }
     
@@ -1383,15 +1412,22 @@ const HistorialView = ({ ventasRealizadas, setVentasRealizadas, recetas, setRece
       }
     }
     
-    // Calcular costo de packagings
+    // CALCULAR COSTOS (conversión correcta de docena a unidad)
+    const costoReceta = calcularCostoReceta(receta);
+    const unidadesPorRendimiento = receta.unidadRendimiento === 'docena' 
+      ? (receta.rendimientoUnidades || 1) * 12 
+      : (receta.rendimientoUnidades || 1);
+    const costoPorUnidad = costoReceta / unidadesPorRendimiento;
+    
+    // Calcular costos totales
     const costoPackaging = formData.packagings.reduce((sum, p) => sum + (p.precio * p.cantidad), 0);
-    const baseRecetaPackaging = (costoReceta + costoPackaging) * formData.cantidadUnidades;
+    const baseRecetaPackaging = (costoPorUnidad * formData.cantidadUnidades) + costoPackaging;
     const costoManoObra = baseRecetaPackaging * (formData.porcentajeManoObra / 100);
     const costoServicios = baseRecetaPackaging * (formData.porcentajeServicios / 100);
     const costoDesechables = baseRecetaPackaging * (formData.porcentajeDesechables / 100);
     const costoTotal = baseRecetaPackaging + costoManoObra + costoServicios + costoDesechables;
-    const ganancia = formData.precioPorUnidad * formData.cantidadUnidades - costoTotal;
-    const margenGanancia = formData.precioPorUnidad * formData.cantidadUnidades > 0 ? (ganancia / formData.precioPorUnidad * formData.cantidadUnidades * 100) : 0;
+    const ganancia = formData.precioTotal - costoTotal;
+    const margenGanancia = formData.precioTotal > 0 ? (ganancia / formData.precioTotal * 100) : 0;
     
     // DESCUENTO AUTOMÁTICO DE STOCK DE RECETAS
     const nuevasRecetas = recetas.map(r => {
@@ -1417,22 +1453,28 @@ const HistorialView = ({ ventasRealizadas, setVentasRealizadas, recetas, setRece
     // Registrar venta
     const nuevaVenta = {
       id: generarId(),
-      ...formData,
+      cliente: formData.cliente,
+      recetaId: formData.recetaId,
       recetaNombre: receta.nombre,
+      cantidadUnidades: formData.cantidadUnidades,
+      precioVenta: formData.precioTotal,
+      precioPorUnidad: formData.precioTotal / formData.cantidadUnidades,
       costoTotal,
-      costoPackaging,
-      costoManoObra,
-      costoServicios,
-      costoDesechables,
+      costoPorUnidad,
       ganancia,
       margenGanancia,
+      packagings: formData.packagings,
+      porcentajeManoObra: formData.porcentajeManoObra,
+      porcentajeServicios: formData.porcentajeServicios,
+      porcentajeDesechables: formData.porcentajeDesechables,
+      fecha: formData.fecha,
       timestamp: new Date().toISOString()
     };
     
     setVentasRealizadas([nuevaVenta, ...ventasRealizadas]);
     resetForm();
     
-    alert(`✅ Venta registrada exitosamente!\n\nCliente: ${formData.cliente}\nProducto: ${receta.nombre}\nGanancia: ${formatearMoneda(ganancia)}\n\n📦 Stock de receta actualizado: ${receta.stock} → ${receta.stock - formData.cantidadUnidades}`);
+    alert(`✅ Venta registrada!\n\n${formData.cantidadUnidades} unidades de ${receta.nombre}\nPrecio total: ${formatearMoneda(formData.precioTotal)}\nGanancia: ${formatearMoneda(ganancia)}\n\n📦 Stock: ${receta.stock} → ${receta.stock - formData.cantidadUnidades} unidades`);
   };
 
   const resetForm = () => {
@@ -1440,7 +1482,7 @@ const HistorialView = ({ ventasRealizadas, setVentasRealizadas, recetas, setRece
       cliente: '',
       recetaId: '',
       cantidadUnidades: 1,
-      precioPorUnidad: 0,
+      precioTotal: 0,
       packagings: [],
       porcentajeManoObra: 0,
       porcentajeServicios: 0,
@@ -1653,7 +1695,10 @@ const HistorialView = ({ ventasRealizadas, setVentasRealizadas, recetas, setRece
                 <option value="">Seleccionar receta...</option>
                 {recetas.map(receta => {
                   const costoReceta = calcularCostoReceta(receta);
-                  const costoPorUnidad = costoReceta / (receta.rendimientoUnidades || 1);
+                  const unidadesPorRendimiento = receta.unidadRendimiento === 'docena' 
+                    ? (receta.rendimientoUnidades || 1) * 12 
+                    : (receta.rendimientoUnidades || 1);
+                  const costoPorUnidad = costoReceta / unidadesPorRendimiento;
                   return (
                     <option key={receta.id} value={receta.id} disabled={receta.stock === 0}>
                       {receta.nombre} - {formatearMoneda(costoPorUnidad)}/unidad | Stock: {receta.stock} unidades
@@ -1728,14 +1773,14 @@ const HistorialView = ({ ventasRealizadas, setVentasRealizadas, recetas, setRece
             
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
               <Input
-                label="💵 Precio por UNIDAD"
+                label="💵 Precio TOTAL de la Venta"
                 type="number"
                 step="0.01"
                 min="0"
                 required
-                value={formData.precioPorUnidad}
-                onChange={e => setFormData({ ...formData, precioPorUnidad: parseFloat(e.target.value) || 0 })}
-                placeholder="Ej: 50.00"
+                value={formData.precioTotal}
+                onChange={e => setFormData({ ...formData, precioTotal: parseFloat(e.target.value) || 0 })}
+                placeholder="Ej: 600.00"
                 style={{ fontSize: '1.1rem', fontWeight: '600' }}
               />
               
@@ -1748,24 +1793,26 @@ const HistorialView = ({ ventasRealizadas, setVentasRealizadas, recetas, setRece
               />
             </div>
 
-            {formData.recetaId && formData.precioPorUnidad > 0 && (() => {
+            {formData.recetaId && formData.precioTotal > 0 && (() => {
               const receta = recetas.find(r => r.id === formData.recetaId);
               const costoReceta = calcularCostoReceta(receta);
-              const costoPorUnidad = costoReceta / (receta.rendimientoUnidades || 1);
+              
+              // CONVERSIÓN CORRECTA DE DOCENA A UNIDAD
+              const unidadesPorRendimiento = receta.unidadRendimiento === 'docena' 
+                ? (receta.rendimientoUnidades || 1) * 12 
+                : (receta.rendimientoUnidades || 1);
+              const costoPorUnidad = costoReceta / unidadesPorRendimiento;
+              
               const costoPackagingTotal = formData.packagings.reduce((sum, p) => sum + (p.precio * p.cantidad), 0);
               
-              // Calcular costos POR UNIDAD
-              const costoBasePorUnidad = costoPorUnidad + (costoPackagingTotal / formData.cantidadUnidades);
-              const costoManoObraPorUnidad = costoBasePorUnidad * (formData.porcentajeManoObra / 100);
-              const costoServiciosPorUnidad = costoBasePorUnidad * (formData.porcentajeServicios / 100);
-              const costoDesechablesPorUnidad = costoBasePorUnidad * (formData.porcentajeDesechables / 100);
-              const costoTotalPorUnidad = costoBasePorUnidad + costoManoObraPorUnidad + costoServiciosPorUnidad + costoDesechablesPorUnidad;
-              
-              // Calcular totales
-              const costoTotalVenta = costoTotalPorUnidad * formData.cantidadUnidades;
-              const precioTotalVenta = formData.precioPorUnidad * formData.cantidadUnidades;
-              const gananciaTotal = precioTotalVenta - costoTotalVenta;
-              const gananciaPorUnidad = formData.precioPorUnidad - costoTotalPorUnidad;
+              // Calcular costos totales
+              const baseRecetaPackaging = (costoPorUnidad * formData.cantidadUnidades) + costoPackagingTotal;
+              const costoManoObra = baseRecetaPackaging * (formData.porcentajeManoObra / 100);
+              const costoServicios = baseRecetaPackaging * (formData.porcentajeServicios / 100);
+              const costoDesechables = baseRecetaPackaging * (formData.porcentajeDesechables / 100);
+              const costoTotal = baseRecetaPackaging + costoManoObra + costoServicios + costoDesechables;
+              const gananciaTotal = formData.precioTotal - costoTotal;
+              const precioPorUnidad = formData.precioTotal / formData.cantidadUnidades;
               
               return (
                 <Card style={{ backgroundColor: theme.secondary, border: `2px solid ${theme.primary}` }}>
@@ -1773,44 +1820,27 @@ const HistorialView = ({ ventasRealizadas, setVentasRealizadas, recetas, setRece
                     Vista previa de la venta
                   </div>
                   
-                  <div style={{ display: 'grid', gap: '0.5rem', fontSize: '0.9rem', marginBottom: '1rem' }}>
-                    <div style={{ fontWeight: '600', color: theme.text, fontSize: '1rem' }}>
-                      Por unidad:
+                  <div style={{ display: 'grid', gap: '0.5rem', fontSize: '0.9rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.5rem', borderBottom: `1px solid ${theme.primary}` }}>
+                      <span style={{ fontWeight: '600', color: theme.text }}>Precio por unidad:</span>
+                      <span style={{ fontWeight: '600' }}>{formatearMoneda(precioPorUnidad)}</span>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', paddingLeft: '1rem' }}>
-                      <span style={{ color: theme.textLight }}>Costo:</span>
-                      <span>{formatearMoneda(costoTotalPorUnidad)}</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: theme.textLight }}>Costo total:</span>
+                      <span>{formatearMoneda(costoTotal)}</span>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', paddingLeft: '1rem' }}>
-                      <span style={{ color: theme.textLight }}>Precio:</span>
-                      <span style={{ fontWeight: '600' }}>{formatearMoneda(formData.precioPorUnidad)}</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', paddingLeft: '1rem' }}>
-                      <span style={{ color: gananciaPorUnidad >= 0 ? theme.success : theme.danger }}>
-                        {gananciaPorUnidad >= 0 ? '✅ Ganancia:' : '⚠️ Pérdida:'}
-                      </span>
-                      <span style={{ fontWeight: '600', color: gananciaPorUnidad >= 0 ? theme.success : theme.danger }}>
-                        {formatearMoneda(Math.abs(gananciaPorUnidad))}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  <div style={{ paddingTop: '1rem', borderTop: `2px solid ${theme.primary}` }}>
-                    <div style={{ fontWeight: '600', color: theme.text, fontSize: '1rem', marginBottom: '0.5rem' }}>
-                      Total venta ({formData.cantidadUnidades} unidades):
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.1rem' }}>
-                      <span style={{ fontWeight: '600', color: gananciaTotal >= 0 ? theme.success : theme.danger }}>
-                        {gananciaTotal >= 0 ? '✅ Ganancia Total:' : '⚠️ Pérdida Total:'}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '0.5rem', borderTop: `1px solid ${theme.primary}` }}>
+                      <span style={{ fontWeight: '700', fontSize: '1.05rem', color: gananciaTotal >= 0 ? theme.success : theme.danger }}>
+                        {gananciaTotal >= 0 ? '✅ GANANCIA:' : '⚠️ PÉRDIDA:'}
                       </span>
                       <span style={{ fontWeight: '700', fontSize: '1.5rem', color: gananciaTotal >= 0 ? theme.success : theme.danger }}>
                         {formatearMoneda(Math.abs(gananciaTotal))}
                       </span>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', marginTop: '0.5rem' }}>
-                      <span style={{ color: theme.textLight }}>Precio total:</span>
-                      <span style={{ fontWeight: '600' }}>{formatearMoneda(precioTotalVenta)}</span>
-                    </div>
+                  </div>
+                </Card>
+              );
+            })()}
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginTop: '0.25rem' }}>
                       <span style={{ color: theme.textLight }}>Costo total:</span>
                       <span>{formatearMoneda(costoTotalVenta)}</span>
