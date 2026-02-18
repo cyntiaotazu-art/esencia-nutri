@@ -1357,6 +1357,8 @@ const VentasView = ({ recetas, packaging, insumos, preciosGuardados, setPreciosG
                           );
                         })()}
                       </div>
+                    </div>
+                  </div>
                 </Card>
               );
             })}
@@ -2378,3 +2380,4 @@ export default function App() {
     </div>
   );
 }
+
