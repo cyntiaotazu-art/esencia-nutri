@@ -1027,10 +1027,11 @@ const VentasView = ({ recetas, packaging, insumos, preciosGuardados, setPreciosG
                       <Button
                         size="sm"
                         variant="danger"
-                      icon={Trash2}
-                      onClick={() => eliminarProducto(producto.id)}
-                      style={{ padding: '0.5rem', minWidth: 'auto' }}
-                    />
+                        icon={Trash2}
+                        onClick={() => eliminarProducto(producto.id)}
+                        style={{ padding: '0.5rem', minWidth: 'auto' }}
+                      />
+                    </div>
                   </div>
 
                   <div style={{ display: 'grid', gap: '1rem' }}>
