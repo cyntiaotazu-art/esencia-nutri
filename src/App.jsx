@@ -1027,11 +1027,10 @@ const VentasView = ({ recetas, packaging, insumos, preciosGuardados, setPreciosG
                       <Button
                         size="sm"
                         variant="danger"
-                        icon={Trash2}
-                        onClick={() => eliminarProducto(producto.id)}
-                        style={{ padding: '0.5rem', minWidth: 'auto' }}
-                      />
-                    </div>
+                      icon={Trash2}
+                      onClick={() => eliminarProducto(producto.id)}
+                      style={{ padding: '0.5rem', minWidth: 'auto' }}
+                    />
                   </div>
 
                   <div style={{ display: 'grid', gap: '1rem' }}>
@@ -2184,7 +2183,7 @@ const AgendaView = ({ agendaProduccion }) => {
                     </h3>
                     <Badge variant="success">{registro.cantidadUnidades} unidades</Badge>
                   </div>
-                  <div style={{ display: 'flex', gap: '1.5rem', fontSize: '0.85rem', color: theme.textLight' }}>
+                  <div style={{ display: 'flex', gap: '1.5rem', fontSize: '0.85rem', color: theme.textLight }}>
                     <span>⏰ {registro.hora}</span>
                     <span>📦 {registro.cantidadProducida}</span>
                     <span>🔧 {registro.tipoProduccion}</span>
