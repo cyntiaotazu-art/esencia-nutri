@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Edit2, Package, ChefHat, ShoppingBag, DollarSign, Save, X, Calculator, TrendingUp, Download, Upload, Search, AlertTriangle, BarChart3, PlayCircle, ClipboardList, Clock, CheckCircle, Truck, User, Phone, MessageSquare, Bell, ChevronRight } from 'lucide-react';
+import { Plus, Trash2, Edit2, Package, ChefHat, ShoppingBag, DollarSign, Save, X, Calculator, TrendingUp, Download, Upload, Search, AlertTriangle, BarChart3, PlayCircle, ClipboardList, Clock, CheckCircle, Truck, User, Phone, MessageSquare, Bell, Tag } from 'lucide-react';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import jsPDF from 'jspdf';
 
@@ -852,7 +852,8 @@ const VentasView = ({ recetas, packaging, insumos, preciosGuardados, setPreciosG
       porcentajeServicios: 5,
       porcentajeDesechables: 3,
       precioVentaTotal: 0,
-      precioVentaPorUnidad: 0
+      precioVentaPorUnidad: 0,
+      subtitulo: ''
     };
     setProductos([...productos, nuevoProducto]);
     setTempPackaging({ ...tempPackaging, [nuevoProducto.id]: { id: '', cantidad: 1 } });
@@ -997,9 +998,15 @@ const VentasView = ({ recetas, packaging, insumos, preciosGuardados, setPreciosG
                 <Card key={producto.id}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
                     <div>
-                      <h3 style={{ fontSize: '1.3rem', fontWeight: '700', color: theme.text, margin: '0 0 0.5rem 0' }}>
+                      <h3 style={{ fontSize: '1.3rem', fontWeight: '700', color: theme.text, margin: '0 0 0.25rem 0' }}>
                         {producto.nombreReceta}
                       </h3>
+                      <input
+                        value={producto.subtitulo || ''}
+                        onChange={e => actualizarProducto(producto.id, 'subtitulo', e.target.value)}
+                        placeholder="Subtítulo (ej: Oferta 12 empanadas)"
+                        style={{ fontSize: '0.85rem', color: theme.primary, border: 'none', borderBottom: `1px dashed ${theme.primary}`, background: 'transparent', outline: 'none', width: '100%', padding: '0.1rem 0', marginBottom: '0.4rem', fontStyle: 'italic' }}
+                      />
                       <div style={{ fontSize: '0.9rem', color: theme.textLight }}>
                         🍰 Rinde: {producto.rendimientoUnidades} {producto.unidadRendimiento}(es)
                         {producto.unidadRendimiento === 'docena' && ` (${producto.rendimientoUnidades * 12} unidades)`}
@@ -1385,9 +1392,10 @@ const VentasView = ({ recetas, packaging, insumos, preciosGuardados, setPreciosG
                   <Card key={precio.id} style={{ position: 'relative' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '1rem' }}>
                       <div>
-                        <h4 style={{ fontSize: '1.2rem', fontWeight: '600', color: theme.text, margin: '0 0 0.5rem 0' }}>
+                        <h4 style={{ fontSize: '1.2rem', fontWeight: '600', color: theme.text, margin: '0 0 0.2rem 0' }}>
                           {precio.nombreReceta}
                         </h4>
+                        {precio.subtitulo && <div style={{ fontSize: '0.85rem', color: theme.primary, fontStyle: 'italic', marginBottom: '0.25rem' }}><Tag size={12} style={{ verticalAlign: 'middle', marginRight: '0.3rem' }} />{precio.subtitulo}</div>}
                         <div style={{ fontSize: '0.85rem', color: theme.textLight }}>
                           Guardado: {new Date(precio.fechaGuardado).toLocaleDateString('es-AR')} {new Date(precio.fechaGuardado).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
                         </div>
@@ -1979,7 +1987,7 @@ const HistorialView = ({ ventasRealizadas, setVentasRealizadas, recetas, setRece
 };
 
 // ==================== COMPONENTE: DASHBOARD ====================
-const DashboardView = ({ ventasRealizadas, recetas, insumos, agendaProduccion }) => {
+const DashboardView = ({ ventasRealizadas, recetas, insumos, agendaProduccion, pedidos = [] }) => {
   const hoy = new Date().toISOString().split('T')[0];
   const ventasHoy = ventasRealizadas.filter(v => v.fecha === hoy);
   const totalHoy = ventasHoy.reduce((sum, v) => sum + v.precioVenta, 0);
@@ -2036,6 +2044,63 @@ const DashboardView = ({ ventasRealizadas, recetas, insumos, agendaProduccion })
           <p style={{ fontSize: '1rem', color: theme.textLight }}>Comienza registrando ventas en "Ventas"</p>
         </Card>
       )}
+
+      {/* Pedidos Pendientes en Dashboard */}
+      {(() => {
+        const hoyStr = new Date().toISOString().slice(0, 10);
+        const activos = (pedidos || []).filter(p => p.estado !== 'entregado').sort((a, b) => a.fechaEntrega.localeCompare(b.fechaEntrega));
+        if (activos.length === 0) return null;
+        const ESTADO_CFG = {
+          pendiente:  { label: 'Pendiente',        color: '#FFB74D', bg: '#FFF8E1' },
+          preparando: { label: 'En preparacion',   color: '#64B5F6', bg: '#E3F2FD' },
+          listo:      { label: 'Listo p/ retirar', color: '#66BB6A', bg: '#E8F5E9' },
+        };
+        const formatF = (f) => { const [y,m,d] = f.split('-'); return d+'/'+m+'/'+y; };
+        return (
+          <Card style={{ padding: '1.5rem', marginTop: '2rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: '700', color: theme.text, margin: 0 }}>
+                <ClipboardList size={20} style={{ verticalAlign: 'middle', marginRight: '0.5rem' }} />
+                Pedidos Pendientes ({activos.length})
+              </h3>
+              {activos.filter(p => p.fechaEntrega === hoyStr).length > 0 && (
+                <span style={{ backgroundColor: '#E57373', color: 'white', padding: '0.2rem 0.8rem', borderRadius: '20px', fontSize: '0.8rem', fontWeight: '700' }}>
+                  {activos.filter(p => p.fechaEntrega === hoyStr).length} para HOY
+                </span>
+              )}
+            </div>
+            <div style={{ display: 'grid', gap: '0.65rem' }}>
+              {activos.slice(0, 6).map(p => {
+                const cfg = ESTADO_CFG[p.estado] || ESTADO_CFG.pendiente;
+                const venc = p.fechaEntrega < hoyStr;
+                const isHoy = p.fechaEntrega === hoyStr;
+                const total = p.items ? p.items.reduce((s, it) => s + it.cantidad * it.precio, 0) : 0;
+                const saldo = total - (p.senia || 0);
+                return (
+                  <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', backgroundColor: cfg.bg, borderRadius: '10px', border: '1.5px solid ' + (venc ? '#E57373' : isHoy ? '#FFB74D' : cfg.color) }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.1rem' }}>
+                        <span style={{ fontWeight: '700', color: theme.text, fontSize: '0.95rem' }}>{p.cliente}</span>
+                        {venc && <span style={{ fontSize: '0.7rem', backgroundColor: '#E57373', color: 'white', padding: '0.1rem 0.45rem', borderRadius: '20px', fontWeight: '700', flexShrink: 0 }}>VENCIDO</span>}
+                        {isHoy && !venc && <span style={{ fontSize: '0.7rem', backgroundColor: '#FFB74D', color: 'white', padding: '0.1rem 0.45rem', borderRadius: '20px', fontWeight: '700', flexShrink: 0 }}>HOY</span>}
+                      </div>
+                      <div style={{ fontSize: '0.8rem', color: theme.textLight, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {p.items ? p.items.map(it => it.cantidad+'x '+it.descripcion).join(' · ') : ''}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                      <div style={{ fontSize: '0.8rem', fontWeight: '700', color: cfg.color }}>{cfg.label}</div>
+                      <div style={{ fontSize: '0.8rem', color: venc ? '#E57373' : theme.textLight }}>{formatF(p.fechaEntrega)}{p.horaEntrega ? ' '+p.horaEntrega : ''}</div>
+                      {saldo > 0 && <div style={{ fontSize: '0.75rem', color: '#E57373', fontWeight: '600' }}>Saldo: ${saldo.toLocaleString('es-AR')}</div>}
+                    </div>
+                  </div>
+                );
+              })}
+              {activos.length > 6 && <div style={{ textAlign: 'center', fontSize: '0.85rem', color: theme.textLight, paddingTop: '0.5rem' }}>...y {activos.length - 6} pedidos más en la pestaña Pedidos</div>}
+            </div>
+          </Card>
+        );
+      })()}
 
       {/* Gráfico de Producción */}
       {agendaProduccion && agendaProduccion.length > 0 && (() => {
@@ -2213,46 +2278,55 @@ const AgendaView = ({ agendaProduccion }) => {
 
 
 // ==================== COMPONENTE: PEDIDOS PENDIENTES ====================
-function PedidosView({ pedidos, setPedidos }) {
+function PedidosView({ pedidos, setPedidos, recetas }) {
   const generarId = () => Date.now().toString(36) + Math.random().toString(36).slice(2);
 
-  const ESTADOS = {
-    pendiente:   { label: 'Pendiente',        emoji: 'clock', color: '#FFB74D', bg: '#FFF8E1', next: 'preparando' },
-    preparando:  { label: 'En preparacion',   emoji: 'chef',  color: '#64B5F6', bg: '#E3F2FD', next: 'listo' },
-    listo:       { label: 'Listo p/ retirar', emoji: 'check', color: '#66BB6A', bg: '#E8F5E9', next: 'entregado' },
-    entregado:   { label: 'Entregado',         emoji: 'truck', color: '#A5A5A5', bg: '#F5F5F5', next: null },
+  const ESTADO_CFG = {
+    pendiente:  { label: 'Pendiente',        emoji: '🕐', color: '#FFB74D', bg: '#FFF8E1', next: 'preparando' },
+    preparando: { label: 'En preparacion',   emoji: '🍳', color: '#64B5F6', bg: '#E3F2FD', next: 'listo' },
+    listo:      { label: 'Listo p/ retirar', emoji: '✅', color: '#66BB6A', bg: '#E8F5E9', next: 'entregado' },
+    entregado:  { label: 'Entregado',        emoji: '🎉', color: '#9E9E9E', bg: '#F5F5F5', next: null },
   };
 
-  const ESTADO_LABELS = {
-    pendiente:  { icon: Clock,        label: 'Pendiente',        emoji: "🕐", next: 'preparando' },
-    preparando: { icon: ChefHat,      label: 'En preparacion',   emoji: "👩‍🍳", next: 'listo' },
-    listo:      { icon: CheckCircle,  label: 'Listo p/ retirar', emoji: "✅", next: 'entregado' },
-    entregado:  { icon: Truck,        label: 'Entregado',        emoji: "🎉", next: null },
-  };
-
-  const ESTADO_COLORS = {
-    pendiente:  { color: '#FFB74D', bg: '#FFF8E1' },
-    preparando: { color: '#64B5F6', bg: '#E3F2FD' },
-    listo:      { color: '#66BB6A', bg: '#E8F5E9' },
-    entregado:  { color: '#A5A5A5', bg: '#F5F5F5' },
-  };
-
-  const [filtro, setFiltro]     = useState('activos');
-  const [showForm, setShowForm] = useState(false);
-  const [editId, setEditId]     = useState(null);
-  const [form, setForm]         = useState({
+  const [filtro, setFiltro]       = useState('activos');
+  const [showForm, setShowForm]   = useState(false);
+  const [editId, setEditId]       = useState(null);
+  const [busqReceta, setBusqReceta] = useState('');
+  const [form, setForm] = useState({
     cliente: '', telefono: '', fechaEntrega: '', horaEntrega: '',
-    notas: '', items: [{ descripcion: '', cantidad: 1, precio: 0 }], senia: 0
+    notas: '', items: [], senia: 0
   });
 
+  const recetasFiltradas = (recetas || []).filter(r =>
+    r.nombre.toLowerCase().includes(busqReceta.toLowerCase())
+  );
+
+  const agregarRecetaAlPedido = (receta) => {
+    const ya = form.items.find(it => it.recetaId === receta.id);
+    if (ya) {
+      setForm({ ...form, items: form.items.map(it => it.recetaId === receta.id ? { ...it, cantidad: it.cantidad + 1 } : it) });
+    } else {
+      setForm({ ...form, items: [...form.items, { id: generarId(), recetaId: receta.id, descripcion: receta.nombre, cantidad: 1, precio: 0, esReceta: true }] });
+    }
+  };
+
+  const addItemManual = () => setForm({ ...form, items: [...form.items, { id: generarId(), descripcion: '', cantidad: 1, precio: 0, esReceta: false }] });
+
+  const removeItem = (id) => setForm({ ...form, items: form.items.filter(it => it.id !== id) });
+
+  const updateItem = (id, field, val) => {
+    setForm({ ...form, items: form.items.map(it => it.id !== id ? it : { ...it, [field]: field === 'descripcion' ? val : parseFloat(val) || 0 }) });
+  };
+
   const resetForm = () => {
-    setForm({ cliente: '', telefono: '', fechaEntrega: '', horaEntrega: '', notas: '', items: [{ descripcion: '', cantidad: 1, precio: 0 }], senia: 0 });
+    setForm({ cliente: '', telefono: '', fechaEntrega: '', horaEntrega: '', notas: '', items: [], senia: 0 });
     setEditId(null);
     setShowForm(false);
+    setBusqReceta('');
   };
 
   const abrirEditar = (p) => {
-    setForm({ cliente: p.cliente, telefono: p.telefono, fechaEntrega: p.fechaEntrega, horaEntrega: p.horaEntrega, notas: p.notas, items: p.items, senia: p.senia || 0 });
+    setForm({ cliente: p.cliente, telefono: p.telefono, fechaEntrega: p.fechaEntrega, horaEntrega: p.horaEntrega || '', notas: p.notas || '', items: p.items || [], senia: p.senia || 0 });
     setEditId(p.id);
     setShowForm(true);
   };
@@ -2260,6 +2334,7 @@ function PedidosView({ pedidos, setPedidos }) {
   const guardar = () => {
     if (!form.cliente.trim()) { alert('Ingresa el nombre del cliente'); return; }
     if (!form.fechaEntrega)   { alert('Selecciona una fecha de entrega'); return; }
+    if (form.items.length === 0) { alert('Agrega al menos un producto'); return; }
     if (editId) {
       setPedidos(pedidos.map(p => p.id === editId ? { ...p, ...form } : p));
     } else {
@@ -2271,22 +2346,14 @@ function PedidosView({ pedidos, setPedidos }) {
   const avanzarEstado = (id) => {
     setPedidos(pedidos.map(p => {
       if (p.id !== id) return p;
-      const sig = ESTADO_LABELS[p.estado]?.next;
+      const sig = ESTADO_CFG[p.estado]?.next;
       return sig ? { ...p, estado: sig } : p;
     }));
   };
 
-  const eliminar = (id) => { if (confirm('Eliminar pedido?')) setPedidos(pedidos.filter(p => p.id !== id)); };
+  const eliminar = (id) => { if (confirm('Eliminar este pedido?')) setPedidos(pedidos.filter(p => p.id !== id)); };
 
-  const addItem    = () => setForm({ ...form, items: [...form.items, { descripcion: '', cantidad: 1, precio: 0 }] });
-  const removeItem = (i) => setForm({ ...form, items: form.items.filter((_, idx) => idx !== i) });
-  const updateItem = (i, field, val) => {
-    const items = [...form.items];
-    items[i] = { ...items[i], [field]: field === 'descripcion' ? val : parseFloat(val) || 0 };
-    setForm({ ...form, items });
-  };
-
-  const totalPedido = (p) => p.items.reduce((s, it) => s + it.cantidad * it.precio, 0);
+  const totalPedido = (p) => (p.items || []).reduce((s, it) => s + it.cantidad * it.precio, 0);
   const saldoPedido = (p) => totalPedido(p) - (p.senia || 0);
   const hoy         = new Date().toISOString().slice(0, 10);
   const esVencido   = (p) => p.fechaEntrega < hoy && p.estado !== 'entregado';
@@ -2299,146 +2366,148 @@ function PedidosView({ pedidos, setPedidos }) {
     return true;
   }).sort((a, b) => a.fechaEntrega.localeCompare(b.fechaEntrega));
 
-  const pendientesCount = pedidos.filter(p => p.estado !== 'entregado').length;
-  const hoyCount        = pedidos.filter(p => esHoy(p)).length;
-
-  const formatFecha = (f) => {
-    if (!f) return '';
-    const [y, m, d] = f.split('-');
-    return d + '/' + m + '/' + y;
-  };
+  const counts = Object.keys(ESTADO_CFG).reduce((acc, k) => ({ ...acc, [k]: pedidos.filter(p => p.estado === k).length }), {});
+  const hoyCount = pedidos.filter(p => esHoy(p)).length;
+  const totalForm = form.items.reduce((s, it) => s + it.cantidad * it.precio, 0);
+  const formatF = (f) => { if (!f) return ''; const [y,m,d] = f.split('-'); return d+'/'+m+'/'+y; };
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
-          <h2 style={{ fontSize: '1.75rem', fontWeight: '700', color: theme.text, margin: '0 0 0.25rem 0' }}>Pedidos Pendientes</h2>
+          <h2 style={{ fontSize: '1.75rem', fontWeight: '700', color: theme.text, margin: '0 0 0.3rem 0' }}>
+            <ClipboardList size={26} style={{ verticalAlign: 'middle', marginRight: '0.5rem' }} />
+            Pedidos Pendientes
+          </h2>
           <p style={{ color: theme.textLight, margin: 0, fontSize: '0.9rem' }}>
-            {pendientesCount} activos
-            {hoyCount > 0 && <span style={{ color: '#E57373', fontWeight: '600', marginLeft: '0.5rem' }}>· {hoyCount} para hoy</span>}
+            {counts.pendiente + counts.preparando + counts.listo} activos
+            {hoyCount > 0 && <span style={{ color: '#E57373', fontWeight: '700', marginLeft: '0.6rem' }}>· {hoyCount} para HOY ⚠️</span>}
           </p>
         </div>
-        <button
-          onClick={() => setShowForm(true)}
-          style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1.5rem', backgroundColor: theme.primary, color: 'white', border: 'none', borderRadius: '10px', fontWeight: '600', cursor: 'pointer', fontSize: '0.95rem' }}
-        >
+        <button onClick={() => setShowForm(true)} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1.5rem', backgroundColor: theme.primary, color: 'white', border: 'none', borderRadius: '10px', fontWeight: '700', cursor: 'pointer', fontSize: '0.95rem', boxShadow: '0 2px 8px rgba(90,124,67,0.3)' }}>
           <Plus size={18} /> Nuevo Pedido
         </button>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
-        {Object.entries(ESTADO_LABELS).map(([key, cfg]) => {
-          const col = ESTADO_COLORS[key];
-          const count = pedidos.filter(p => p.estado === key).length;
-          const Icon = cfg.icon;
-          return (
-            <div key={key} style={{ backgroundColor: col.bg, border: '2px solid ' + col.color, borderRadius: '12px', padding: '1rem', textAlign: 'center', cursor: 'pointer' }}
-              onClick={() => setFiltro(key === 'entregado' ? 'entregados' : 'activos')}>
-              <div style={{ fontSize: '1.8rem', fontWeight: '800', color: col.color }}>{count}</div>
-              <div style={{ fontSize: '0.8rem', color: theme.text, fontWeight: '500' }}>{cfg.emoji} {cfg.label}</div>
-            </div>
-          );
-        })}
+      {/* Counters */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem', marginBottom: '1.5rem' }}>
+        {Object.entries(ESTADO_CFG).map(([key, cfg]) => (
+          <div key={key} onClick={() => setFiltro(key === 'entregado' ? 'entregados' : 'activos')} style={{ backgroundColor: cfg.bg, border: '2px solid ' + cfg.color, borderRadius: '12px', padding: '0.9rem 0.75rem', cursor: 'pointer', textAlign: 'center', transition: 'transform 0.1s' }}>
+            <div style={{ fontSize: '1.6rem', fontWeight: '800', color: cfg.color }}>{counts[key]}</div>
+            <div style={{ fontSize: '0.75rem', color: theme.text, fontWeight: '600', marginTop: '0.1rem' }}>{cfg.emoji} {cfg.label}</div>
+          </div>
+        ))}
       </div>
 
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
-        {[['activos', 'Activos'], ['hoy', 'Para hoy'], ['entregados', 'Entregados'], ['todos', 'Todos']].map(([val, label]) => (
-          <button key={val} onClick={() => setFiltro(val)} style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: '2px solid ' + (filtro === val ? theme.primary : theme.border), backgroundColor: filtro === val ? theme.primary : 'white', color: filtro === val ? 'white' : theme.text, fontWeight: '600', cursor: 'pointer', fontSize: '0.85rem' }}>
+      {/* Filters */}
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
+        {[['activos','🟢 Activos'],['hoy','📅 Hoy'],['entregados','✅ Entregados'],['todos','📋 Todos']].map(([val, label]) => (
+          <button key={val} onClick={() => setFiltro(val)} style={{ padding: '0.45rem 1rem', borderRadius: '20px', border: '2px solid ' + (filtro === val ? theme.primary : theme.border), backgroundColor: filtro === val ? theme.primary : 'white', color: filtro === val ? 'white' : theme.text, fontWeight: '600', cursor: 'pointer', fontSize: '0.82rem', transition: 'all 0.15s' }}>
             {label}
           </button>
         ))}
       </div>
 
+      {/* Pedidos list */}
       {pedidosFiltrados.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '4rem 2rem', backgroundColor: theme.card, borderRadius: '16px', border: '2px dashed ' + theme.border }}>
-          <ClipboardList size={48} color={theme.textLight} style={{ margin: '0 auto 1rem', display: 'block' }} />
-          <p style={{ color: theme.textLight, fontSize: '1.1rem' }}>No hay pedidos {filtro === 'hoy' ? 'para hoy' : filtro === 'activos' ? 'activos' : ''}</p>
+          <ClipboardList size={52} color={theme.textLight} style={{ margin: '0 auto 1rem', display: 'block', opacity: 0.5 }} />
+          <p style={{ color: theme.textLight, fontSize: '1.05rem', margin: 0 }}>No hay pedidos {filtro === 'hoy' ? 'para hoy' : filtro === 'activos' ? 'activos' : ''}</p>
+          <button onClick={() => setShowForm(true)} style={{ marginTop: '1.25rem', padding: '0.6rem 1.5rem', backgroundColor: theme.primary, color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}>+ Crear primer pedido</button>
         </div>
       ) : (
         <div style={{ display: 'grid', gap: '1rem' }}>
           {pedidosFiltrados.map(p => {
-            const col  = ESTADO_COLORS[p.estado];
-            const cfg  = ESTADO_LABELS[p.estado];
-            const tot  = totalPedido(p);
-            const sal  = saldoPedido(p);
-            const venc = esVencido(p);
+            const cfg   = ESTADO_CFG[p.estado] || ESTADO_CFG.pendiente;
+            const tot   = totalPedido(p);
+            const sal   = saldoPedido(p);
+            const venc  = esVencido(p);
             const isHoy = esHoy(p);
-            const borderColor = venc ? '#E57373' : isHoy ? '#FFB74D' : col.color;
+            const border = venc ? '#E57373' : isHoy ? '#FFB74D' : cfg.color;
             return (
-              <div key={p.id} style={{ backgroundColor: theme.card, borderRadius: '14px', border: '2px solid ' + borderColor, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-                <div style={{ backgroundColor: col.bg, padding: '0.6rem 1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid ' + col.color }}>
-                  <span style={{ fontWeight: '700', color: col.color, fontSize: '0.9rem' }}>{cfg.emoji} {cfg.label}</span>
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    {venc && <span style={{ fontSize: '0.75rem', backgroundColor: '#E57373', color: 'white', padding: '0.2rem 0.6rem', borderRadius: '20px', fontWeight: '700' }}>VENCIDO</span>}
-                    {isHoy && !venc && <span style={{ fontSize: '0.75rem', backgroundColor: '#FFB74D', color: 'white', padding: '0.2rem 0.6rem', borderRadius: '20px', fontWeight: '700' }}>HOY</span>}
+              <div key={p.id} style={{ backgroundColor: theme.card, borderRadius: '14px', border: '2px solid ' + border, overflow: 'hidden', boxShadow: '0 2px 12px rgba(0,0,0,0.07)' }}>
+                {/* Status bar */}
+                <div style={{ backgroundColor: cfg.bg, padding: '0.55rem 1.1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid ' + cfg.color }}>
+                  <span style={{ fontWeight: '700', color: cfg.color, fontSize: '0.88rem' }}>{cfg.emoji} {cfg.label}</span>
+                  <div style={{ display: 'flex', gap: '0.4rem' }}>
+                    {venc  && <span style={{ fontSize: '0.72rem', backgroundColor: '#E57373', color: 'white', padding: '0.15rem 0.55rem', borderRadius: '20px', fontWeight: '700' }}>VENCIDO</span>}
+                    {isHoy && !venc && <span style={{ fontSize: '0.72rem', backgroundColor: '#FFB74D', color: 'white', padding: '0.15rem 0.55rem', borderRadius: '20px', fontWeight: '700' }}>HOY</span>}
                   </div>
                 </div>
-                <div style={{ padding: '1.25rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+
+                <div style={{ padding: '1.1rem 1.25rem' }}>
+                  {/* Client + date row */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.85rem', flexWrap: 'wrap', gap: '0.5rem' }}>
                     <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-                        <User size={16} color={theme.primary} />
-                        <span style={{ fontWeight: '700', fontSize: '1.1rem', color: theme.text }}>{p.cliente}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginBottom: '0.2rem' }}>
+                        <User size={15} color={theme.primary} />
+                        <span style={{ fontWeight: '700', fontSize: '1.05rem', color: theme.text }}>{p.cliente}</span>
                       </div>
                       {p.telefono && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <Phone size={14} color={theme.textLight} />
-                          <span style={{ fontSize: '0.88rem', color: theme.textLight }}>{p.telefono}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                          <Phone size={13} color={theme.textLight} />
+                          <span style={{ fontSize: '0.82rem', color: theme.textLight }}>{p.telefono}</span>
                         </div>
                       )}
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: '0.8rem', color: theme.textLight }}>Entrega</div>
-                      <div style={{ fontWeight: '700', color: venc ? '#E57373' : theme.text }}>{formatFecha(p.fechaEntrega)}{p.horaEntrega ? ' ' + p.horaEntrega : ''}</div>
+                      <div style={{ fontSize: '0.75rem', color: theme.textLight }}>Entrega</div>
+                      <div style={{ fontWeight: '700', color: venc ? '#E57373' : theme.text, fontSize: '0.95rem' }}>{formatF(p.fechaEntrega)}{p.horaEntrega ? ' · '+p.horaEntrega : ''}</div>
                     </div>
                   </div>
 
-                  <div style={{ backgroundColor: theme.background, borderRadius: '8px', padding: '0.75rem', marginBottom: '0.75rem' }}>
-                    {p.items.map((it, i) => (
-                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', paddingBottom: i < p.items.length - 1 ? '0.4rem' : 0, marginBottom: i < p.items.length - 1 ? '0.4rem' : 0, borderBottom: i < p.items.length - 1 ? '1px solid ' + theme.border : 'none' }}>
-                        <span>{it.cantidad}x {it.descripcion}</span>
-                        <span style={{ fontWeight: '600' }}>${(it.cantidad * it.precio).toLocaleString('es-AR')}</span>
+                  {/* Items */}
+                  <div style={{ backgroundColor: theme.background, borderRadius: '8px', padding: '0.65rem 0.85rem', marginBottom: '0.75rem' }}>
+                    {(p.items || []).map((it, i) => (
+                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem', paddingBottom: i < p.items.length-1 ? '0.35rem' : 0, marginBottom: i < p.items.length-1 ? '0.35rem' : 0, borderBottom: i < p.items.length-1 ? '1px solid '+theme.border : 'none' }}>
+                        <span style={{ color: theme.text }}>{it.esReceta ? '🍰 ' : ''}{it.cantidad}× {it.descripcion}</span>
+                        <span style={{ fontWeight: '600', color: theme.text }}>{it.precio > 0 ? '$'+( it.cantidad*it.precio).toLocaleString('es-AR') : <span style={{ color: theme.textLight, fontSize: '0.78rem' }}>sin precio</span>}</span>
                       </div>
                     ))}
                   </div>
 
-                  <div style={{ fontSize: '0.9rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
-                      <span style={{ color: theme.textLight }}>Total:</span>
-                      <span style={{ fontWeight: '700' }}>${tot.toLocaleString('es-AR')}</span>
-                    </div>
-                    {p.senia > 0 && (
-                      <>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
-                          <span style={{ color: theme.textLight }}>Seña pagada:</span>
-                          <span style={{ fontWeight: '600', color: theme.success }}>-${Number(p.senia).toLocaleString('es-AR')}</span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '0.4rem', borderTop: '1px solid ' + theme.border, marginTop: '0.3rem' }}>
-                          <span style={{ fontWeight: '700' }}>Saldo a cobrar:</span>
-                          <span style={{ fontWeight: '800', color: sal > 0 ? '#E57373' : theme.success, fontSize: '1.05rem' }}>${sal.toLocaleString('es-AR')}</span>
-                        </div>
-                      </>
-                    )}
-                  </div>
-
-                  {p.notas && (
-                    <div style={{ marginTop: '0.75rem', padding: '0.6rem 0.9rem', backgroundColor: '#FFF8E1', borderRadius: '8px', borderLeft: '3px solid #FFB74D', fontSize: '0.85rem', color: theme.text }}>
-                      <MessageSquare size={13} style={{ marginRight: '0.4rem', verticalAlign: 'middle' }} />
-                      {p.notas}
+                  {/* Totals */}
+                  {tot > 0 && (
+                    <div style={{ fontSize: '0.88rem', marginBottom: '0.65rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: theme.textLight }}>Total:</span>
+                        <span style={{ fontWeight: '700', color: theme.text }}>${tot.toLocaleString('es-AR')}</span>
+                      </div>
+                      {p.senia > 0 && (
+                        <>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.2rem' }}>
+                            <span style={{ color: theme.textLight }}>Seña pagada:</span>
+                            <span style={{ fontWeight: '600', color: theme.success }}>-${Number(p.senia).toLocaleString('es-AR')}</span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '0.35rem', borderTop: '1px solid '+theme.border, marginTop: '0.35rem' }}>
+                            <span style={{ fontWeight: '700', color: theme.text }}>Saldo a cobrar:</span>
+                            <span style={{ fontWeight: '800', color: sal > 0 ? '#E57373' : theme.success, fontSize: '1rem' }}>${sal.toLocaleString('es-AR')}</span>
+                          </div>
+                        </>
+                      )}
                     </div>
                   )}
 
-                  <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem', flexWrap: 'wrap' }}>
+                  {/* Notes */}
+                  {p.notas && (
+                    <div style={{ marginBottom: '0.75rem', padding: '0.5rem 0.8rem', backgroundColor: '#FFF8E1', borderRadius: '7px', borderLeft: '3px solid #FFB74D', fontSize: '0.83rem', color: theme.text }}>
+                      <MessageSquare size={12} style={{ marginRight: '0.35rem', verticalAlign: 'middle' }} />{p.notas}
+                    </div>
+                  )}
+
+                  {/* Actions */}
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                     {cfg.next && (
-                      <button onClick={() => avanzarEstado(p.id)} style={{ flex: 1, padding: '0.6rem', backgroundColor: ESTADO_COLORS[cfg.next].color, color: 'white', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer', fontSize: '0.85rem' }}>
-                        Marcar: {ESTADO_LABELS[cfg.next].emoji} {ESTADO_LABELS[cfg.next].label}
+                      <button onClick={() => avanzarEstado(p.id)} style={{ flex: 1, minWidth: '140px', padding: '0.55rem 0.75rem', backgroundColor: ESTADO_CFG[cfg.next].color, color: 'white', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer', fontSize: '0.82rem' }}>
+                        → {ESTADO_CFG[cfg.next].emoji} {ESTADO_CFG[cfg.next].label}
                       </button>
                     )}
-                    <button onClick={() => abrirEditar(p)} style={{ padding: '0.6rem 1rem', backgroundColor: theme.hover, color: theme.text, border: '1px solid ' + theme.border, borderRadius: '8px', cursor: 'pointer' }}>
-                      <Edit2 size={14} />
+                    <button onClick={() => abrirEditar(p)} style={{ padding: '0.55rem 0.9rem', backgroundColor: theme.hover, color: theme.text, border: '1px solid '+theme.border, borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.82rem', fontWeight: '600' }}>
+                      <Edit2 size={13} /> Editar
                     </button>
-                    <button onClick={() => eliminar(p.id)} style={{ padding: '0.6rem 1rem', backgroundColor: '#FFF0F0', color: '#E57373', border: '1px solid #FFCDD2', borderRadius: '8px', cursor: 'pointer' }}>
-                      <Trash2 size={14} />
+                    <button onClick={() => eliminar(p.id)} style={{ padding: '0.55rem 0.9rem', backgroundColor: '#FFF0F0', color: '#E57373', border: '1px solid #FFCDD2', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.82rem', fontWeight: '600' }}>
+                      <Trash2 size={13} />
                     </button>
                   </div>
                 </div>
@@ -2448,69 +2517,116 @@ function PedidosView({ pedidos, setPedidos }) {
         </div>
       )}
 
+      {/* MODAL FORM */}
       {showForm && (
-        <div onClick={resetForm} style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
-          <div onClick={e => e.stopPropagation()} style={{ backgroundColor: 'white', borderRadius: '16px', padding: '2rem', width: '100%', maxWidth: '560px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-              <h3 style={{ margin: 0, fontWeight: '700', fontSize: '1.3rem', color: theme.text }}>{editId ? 'Editar Pedido' : 'Nuevo Pedido'}</h3>
-              <button onClick={resetForm} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={22} color={theme.textLight} /></button>
+        <div onClick={resetForm} style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.55)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div onClick={e => e.stopPropagation()} style={{ backgroundColor: 'white', borderRadius: '18px', width: '100%', maxWidth: '680px', maxHeight: '92vh', overflowY: 'auto', boxShadow: '0 24px 80px rgba(0,0,0,0.35)', display: 'flex', flexDirection: 'column' }}>
+            {/* Modal header */}
+            <div style={{ padding: '1.5rem 1.75rem 1rem', borderBottom: '1px solid ' + theme.border, display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, backgroundColor: 'white', zIndex: 10, borderRadius: '18px 18px 0 0' }}>
+              <h3 style={{ margin: 0, fontWeight: '700', fontSize: '1.25rem', color: theme.text }}>{editId ? '✏️ Editar Pedido' : '📋 Nuevo Pedido'}</h3>
+              <button onClick={resetForm} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.25rem', borderRadius: '6px' }}><X size={22} color={theme.textLight} /></button>
             </div>
 
-            <div style={{ display: 'grid', gap: '1rem' }}>
+            <div style={{ padding: '1.25rem 1.75rem', display: 'grid', gap: '1.1rem' }}>
+              {/* Client + phone */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: theme.text, marginBottom: '0.4rem' }}>Cliente *</label>
-                  <input value={form.cliente} onChange={e => setForm({ ...form, cliente: e.target.value })} placeholder="Nombre del cliente" style={{ width: '100%', padding: '0.65rem', borderRadius: '8px', border: '1.5px solid ' + theme.border, fontSize: '0.95rem', boxSizing: 'border-box' }} />
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '700', color: theme.text, marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>👤 Cliente *</label>
+                  <input value={form.cliente} onChange={e => setForm({ ...form, cliente: e.target.value })} placeholder="Nombre" style={{ width: '100%', padding: '0.65rem 0.85rem', borderRadius: '9px', border: '1.5px solid ' + theme.border, fontSize: '0.95rem', boxSizing: 'border-box', outline: 'none' }} />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: theme.text, marginBottom: '0.4rem' }}>Telefono</label>
-                  <input value={form.telefono} onChange={e => setForm({ ...form, telefono: e.target.value })} placeholder="11-1234-5678" style={{ width: '100%', padding: '0.65rem', borderRadius: '8px', border: '1.5px solid ' + theme.border, fontSize: '0.95rem', boxSizing: 'border-box' }} />
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '700', color: theme.text, marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>📞 Teléfono</label>
+                  <input value={form.telefono} onChange={e => setForm({ ...form, telefono: e.target.value })} placeholder="11-1234-5678" style={{ width: '100%', padding: '0.65rem 0.85rem', borderRadius: '9px', border: '1.5px solid ' + theme.border, fontSize: '0.95rem', boxSizing: 'border-box', outline: 'none' }} />
                 </div>
               </div>
 
+              {/* Date + time */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: theme.text, marginBottom: '0.4rem' }}>Fecha de entrega *</label>
-                  <input type="date" value={form.fechaEntrega} onChange={e => setForm({ ...form, fechaEntrega: e.target.value })} style={{ width: '100%', padding: '0.65rem', borderRadius: '8px', border: '1.5px solid ' + theme.border, fontSize: '0.95rem', boxSizing: 'border-box' }} />
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '700', color: theme.text, marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>📅 Fecha de entrega *</label>
+                  <input type="date" value={form.fechaEntrega} onChange={e => setForm({ ...form, fechaEntrega: e.target.value })} style={{ width: '100%', padding: '0.65rem 0.85rem', borderRadius: '9px', border: '1.5px solid ' + theme.border, fontSize: '0.95rem', boxSizing: 'border-box', outline: 'none' }} />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: theme.text, marginBottom: '0.4rem' }}>Hora (opcional)</label>
-                  <input type="time" value={form.horaEntrega} onChange={e => setForm({ ...form, horaEntrega: e.target.value })} style={{ width: '100%', padding: '0.65rem', borderRadius: '8px', border: '1.5px solid ' + theme.border, fontSize: '0.95rem', boxSizing: 'border-box' }} />
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '700', color: theme.text, marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>🕐 Hora</label>
+                  <input type="time" value={form.horaEntrega} onChange={e => setForm({ ...form, horaEntrega: e.target.value })} style={{ width: '100%', padding: '0.65rem 0.85rem', borderRadius: '9px', border: '1.5px solid ' + theme.border, fontSize: '0.95rem', boxSizing: 'border-box', outline: 'none' }} />
                 </div>
               </div>
 
+              {/* Recipe picker */}
+              <div style={{ backgroundColor: theme.background, borderRadius: '12px', padding: '1rem' }}>
+                <div style={{ fontSize: '0.82rem', fontWeight: '700', color: theme.text, marginBottom: '0.6rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>🍰 Agregar desde tus recetas</div>
+                <input value={busqReceta} onChange={e => setBusqReceta(e.target.value)} placeholder="Buscar receta..." style={{ width: '100%', padding: '0.55rem 0.8rem', borderRadius: '8px', border: '1.5px solid ' + theme.border, fontSize: '0.88rem', boxSizing: 'border-box', marginBottom: '0.6rem', outline: 'none' }} />
+                {recetasFiltradas.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '0.75rem', color: theme.textLight, fontSize: '0.85rem' }}>No hay recetas{busqReceta ? ' que coincidan' : '. Creá una en Recetas'}</div>
+                ) : (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.45rem', maxHeight: '120px', overflowY: 'auto' }}>
+                    {recetasFiltradas.map(r => {
+                      const enPedido = form.items.find(it => it.recetaId === r.id);
+                      return (
+                        <button key={r.id} onClick={() => agregarRecetaAlPedido(r)} style={{ padding: '0.4rem 0.85rem', borderRadius: '20px', border: '1.5px solid ' + (enPedido ? theme.primary : theme.border), backgroundColor: enPedido ? theme.primary : 'white', color: enPedido ? 'white' : theme.text, fontWeight: '600', cursor: 'pointer', fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                          {enPedido ? '✓ ' : '+ '}{r.nombre}{enPedido ? ' ('+enPedido.cantidad+')' : ''}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Items list */}
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
-                  <label style={{ fontSize: '0.85rem', fontWeight: '600', color: theme.text }}>Productos del pedido</label>
-                  <button onClick={addItem} style={{ fontSize: '0.8rem', padding: '0.3rem 0.7rem', backgroundColor: theme.primary, color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600' }}>+ Agregar</button>
+                  <label style={{ fontSize: '0.82rem', fontWeight: '700', color: theme.text, textTransform: 'uppercase', letterSpacing: '0.04em' }}>🛒 Productos del pedido {form.items.length > 0 ? '('+form.items.length+')' : ''}</label>
+                  <button onClick={addItemManual} style={{ fontSize: '0.78rem', padding: '0.3rem 0.75rem', backgroundColor: 'white', color: theme.primary, border: '1.5px solid ' + theme.primary, borderRadius: '6px', cursor: 'pointer', fontWeight: '700' }}>+ Manual</button>
                 </div>
-                {form.items.map((it, i) => (
-                  <div key={i} style={{ display: 'grid', gridTemplateColumns: '3fr 1fr 1fr auto', gap: '0.5rem', marginBottom: '0.5rem', alignItems: 'center' }}>
-                    <input value={it.descripcion} onChange={e => updateItem(i, 'descripcion', e.target.value)} placeholder="Descripcion" style={{ padding: '0.55rem', borderRadius: '7px', border: '1.5px solid ' + theme.border, fontSize: '0.88rem' }} />
-                    <input type="number" value={it.cantidad} onChange={e => updateItem(i, 'cantidad', e.target.value)} min="1" placeholder="Cant" style={{ padding: '0.55rem', borderRadius: '7px', border: '1.5px solid ' + theme.border, fontSize: '0.88rem', textAlign: 'center' }} />
-                    <input type="number" value={it.precio} onChange={e => updateItem(i, 'precio', e.target.value)} min="0" placeholder="$" style={{ padding: '0.55rem', borderRadius: '7px', border: '1.5px solid ' + theme.border, fontSize: '0.88rem', textAlign: 'center' }} />
-                    {form.items.length > 1 && <button onClick={() => removeItem(i)} style={{ padding: '0.4rem', background: 'none', border: 'none', cursor: 'pointer', color: '#E57373' }}><X size={16} /></button>}
+                {form.items.length === 0 ? (
+                  <div style={{ padding: '1rem', textAlign: 'center', color: theme.textLight, fontSize: '0.85rem', backgroundColor: theme.background, borderRadius: '8px', border: '1.5px dashed ' + theme.border }}>
+                    Selecciona recetas arriba o agrega items manualmente
                   </div>
-                ))}
-                <div style={{ textAlign: 'right', fontWeight: '700', color: theme.primary, marginTop: '0.4rem' }}>
-                  Total: ${form.items.reduce((s, it) => s + it.cantidad * it.precio, 0).toLocaleString('es-AR')}
-                </div>
+                ) : (
+                  <div style={{ display: 'grid', gap: '0.45rem' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '3fr 0.8fr 1fr auto', gap: '0.4rem', padding: '0 0.2rem' }}>
+                      <span style={{ fontSize: '0.72rem', color: theme.textLight, fontWeight: '600', textTransform: 'uppercase' }}>Descripcion</span>
+                      <span style={{ fontSize: '0.72rem', color: theme.textLight, fontWeight: '600', textTransform: 'uppercase', textAlign: 'center' }}>Cant.</span>
+                      <span style={{ fontSize: '0.72rem', color: theme.textLight, fontWeight: '600', textTransform: 'uppercase', textAlign: 'center' }}>Precio</span>
+                      <span></span>
+                    </div>
+                    {form.items.map(it => (
+                      <div key={it.id} style={{ display: 'grid', gridTemplateColumns: '3fr 0.8fr 1fr auto', gap: '0.4rem', alignItems: 'center' }}>
+                        <input value={it.descripcion} onChange={e => updateItem(it.id, 'descripcion', e.target.value)} readOnly={it.esReceta} placeholder="Descripcion" style={{ padding: '0.5rem 0.65rem', borderRadius: '7px', border: '1.5px solid ' + theme.border, fontSize: '0.87rem', backgroundColor: it.esReceta ? theme.background : 'white', outline: 'none' }} />
+                        <input type="number" value={it.cantidad} onChange={e => updateItem(it.id, 'cantidad', e.target.value)} min="1" style={{ padding: '0.5rem', borderRadius: '7px', border: '1.5px solid ' + theme.border, fontSize: '0.87rem', textAlign: 'center', outline: 'none' }} />
+                        <input type="number" value={it.precio} onChange={e => updateItem(it.id, 'precio', e.target.value)} min="0" placeholder="$" style={{ padding: '0.5rem', borderRadius: '7px', border: '1.5px solid ' + theme.border, fontSize: '0.87rem', textAlign: 'center', outline: 'none' }} />
+                        <button onClick={() => removeItem(it.id)} style={{ padding: '0.4rem 0.5rem', background: 'none', border: 'none', cursor: 'pointer', color: '#E57373', borderRadius: '6px' }}><X size={15} /></button>
+                      </div>
+                    ))}
+                    <div style={{ textAlign: 'right', fontWeight: '700', color: theme.primary, paddingTop: '0.3rem', fontSize: '0.95rem' }}>
+                      Total: ${totalForm.toLocaleString('es-AR')}
+                    </div>
+                  </div>
+                )}
               </div>
 
+              {/* Seña */}
               <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: theme.text, marginBottom: '0.4rem' }}>Seña recibida ($)</label>
-                <input type="number" value={form.senia} onChange={e => setForm({ ...form, senia: parseFloat(e.target.value) || 0 })} min="0" placeholder="0" style={{ width: '100%', padding: '0.65rem', borderRadius: '8px', border: '1.5px solid ' + theme.border, fontSize: '0.95rem', boxSizing: 'border-box' }} />
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '700', color: theme.text, marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>💵 Seña recibida</label>
+                <input type="number" value={form.senia} onChange={e => setForm({ ...form, senia: parseFloat(e.target.value) || 0 })} min="0" placeholder="0" style={{ width: '100%', padding: '0.65rem 0.85rem', borderRadius: '9px', border: '1.5px solid ' + theme.border, fontSize: '0.95rem', boxSizing: 'border-box', outline: 'none' }} />
+                {form.senia > 0 && totalForm > 0 && (
+                  <div style={{ marginTop: '0.4rem', fontSize: '0.85rem', color: totalForm - form.senia > 0 ? '#E57373' : theme.success, fontWeight: '600' }}>
+                    Saldo a cobrar: ${Math.max(0, totalForm - form.senia).toLocaleString('es-AR')}
+                  </div>
+                )}
               </div>
 
+              {/* Notes */}
               <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: theme.text, marginBottom: '0.4rem' }}>Notas / Aclaraciones</label>
-                <textarea value={form.notas} onChange={e => setForm({ ...form, notas: e.target.value })} placeholder="Ej: sin azucar, caja rosa, celiacos..." rows={3} style={{ width: '100%', padding: '0.65rem', borderRadius: '8px', border: '1.5px solid ' + theme.border, fontSize: '0.9rem', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box' }} />
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '700', color: theme.text, marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>📝 Notas</label>
+                <textarea value={form.notas} onChange={e => setForm({ ...form, notas: e.target.value })} placeholder="Ej: sin azucar, caja rosa, apto celiacos..." rows={2} style={{ width: '100%', padding: '0.65rem 0.85rem', borderRadius: '9px', border: '1.5px solid ' + theme.border, fontSize: '0.9rem', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box', outline: 'none' }} />
               </div>
 
-              <div style={{ display: 'flex', gap: '0.75rem', paddingTop: '0.5rem' }}>
-                <button onClick={resetForm} style={{ flex: 1, padding: '0.8rem', borderRadius: '10px', border: '2px solid ' + theme.border, backgroundColor: 'white', color: theme.text, fontWeight: '600', cursor: 'pointer' }}>Cancelar</button>
-                <button onClick={guardar} style={{ flex: 2, padding: '0.8rem', borderRadius: '10px', border: 'none', backgroundColor: theme.primary, color: 'white', fontWeight: '700', cursor: 'pointer', fontSize: '1rem' }}>
-                  {editId ? 'Guardar cambios' : 'Crear pedido'}
+              {/* Buttons */}
+              <div style={{ display: 'flex', gap: '0.75rem', paddingBottom: '0.25rem' }}>
+                <button onClick={resetForm} style={{ flex: 1, padding: '0.85rem', borderRadius: '10px', border: '2px solid ' + theme.border, backgroundColor: 'white', color: theme.text, fontWeight: '600', cursor: 'pointer', fontSize: '0.95rem' }}>Cancelar</button>
+                <button onClick={guardar} style={{ flex: 2, padding: '0.85rem', borderRadius: '10px', border: 'none', backgroundColor: theme.primary, color: 'white', fontWeight: '700', cursor: 'pointer', fontSize: '1rem', boxShadow: '0 2px 8px rgba(90,124,67,0.3)' }}>
+                  {editId ? '💾 Guardar cambios' : '✅ Crear pedido'}
                 </button>
               </div>
             </div>
@@ -2684,14 +2800,14 @@ export default function App() {
       </nav>
 
       <main style={{ maxWidth: '1400px', margin: '0 auto', padding: '2rem' }}>
-        {activeTab === 'dashboard' && <DashboardView ventasRealizadas={ventasRealizadas} recetas={recetas} insumos={insumos} agendaProduccion={agendaProduccion} />}
+        {activeTab === 'dashboard' && <DashboardView ventasRealizadas={ventasRealizadas} recetas={recetas} insumos={insumos} agendaProduccion={agendaProduccion} pedidos={pedidos} />}
         {activeTab === 'insumos' && <InsumosView insumos={insumos} setInsumos={setInsumos} showModal={showModal} setShowModal={setShowModal} editingItem={editingItem} setEditingItem={setEditingItem} />}
         {activeTab === 'packaging' && <PackagingView packaging={packaging} setPackaging={setPackaging} showModal={showModal} setShowModal={setShowModal} editingItem={editingItem} setEditingItem={setEditingItem} />}
         {activeTab === 'recetas' && <RecetasView recetas={recetas} setRecetas={setRecetas} insumos={insumos} setInsumos={setInsumos} showModal={showModal} setShowModal={setShowModal} editingItem={editingItem} setEditingItem={setEditingItem} agendaProduccion={agendaProduccion} setAgendaProduccion={setAgendaProduccion} />}
         {activeTab === 'ventas' && <VentasView recetas={recetas} packaging={packaging} insumos={insumos} preciosGuardados={preciosGuardados} setPreciosGuardados={setPreciosGuardados} />}
         {activeTab === 'historial' && <HistorialView ventasRealizadas={ventasRealizadas} setVentasRealizadas={setVentasRealizadas} recetas={recetas} setRecetas={setRecetas} insumos={insumos} setInsumos={setInsumos} packaging={packaging} setPackaging={setPackaging} />}
         {activeTab === 'agenda' && <AgendaView agendaProduccion={agendaProduccion} />}
-        {activeTab === 'pedidos' && <PedidosView pedidos={pedidos} setPedidos={setPedidos} />}
+        {activeTab === 'pedidos' && <PedidosView pedidos={pedidos} setPedidos={setPedidos} recetas={recetas} />}
       </main>
     </div>
   );
