@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Plus, Trash2, Edit2, Package, ChefHat, ShoppingBag, DollarSign, Save, X, Calculator, TrendingUp, Download, Upload, Search, AlertTriangle, BarChart3, PlayCircle, ClipboardList, Clock, CheckCircle, Truck, User, Phone, MessageSquare, Bell, Tag } from 'lucide-react';
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area } from 'recharts';
+import jsPDF from 'jspdf';
 import { initializeApp } from 'firebase/app';
-import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection } from 'firebase/firestore';
+import { getFirestore, doc, setDoc, onSnapshot } from 'firebase/firestore';
 
 // ==================== FIREBASE CONFIG ====================
 const firebaseConfig = {
@@ -10,23 +12,21 @@ const firebaseConfig = {
   projectId: "esencia-nutri",
   storageBucket: "esencia-nutri.firebasestorage.app",
   messagingSenderId: "805064998863",
-  appId: "1:805064998863:web:b29bdbbc8750f962f65cba",
-  measurementId: "G-SS34KDNMKB"
+  appId: "1:805064998863:web:b29bdbbc8750f962f65cba"
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
+let db = null;
+let firebaseOk = false;
+try {
+  const fbApp = initializeApp(firebaseConfig);
+  db = getFirestore(fbApp);
+  firebaseOk = true;
+} catch(e) {
+  console.warn('Firebase init error:', e.message);
+}
 
-const firebaseApp = initializeApp(firebaseConfig);
-const db = getFirestore(firebaseApp);
-
-// ID fijo del documento - todos los dispositivos leen/escriben el mismo
-const DOC_ID = 'esencia-nutri-data';
-const COLLECTION = 'app-data';
-
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area } from 'recharts';
-import jsPDF from 'jspdf';
+const FB_COL = 'app-data';
+const FB_DOC = 'esencia-nutri-data';
 
 const theme = {
   primary: '#5A7C43', primaryDark: '#3D5A2C', secondary: '#C8E6C9', accent: '#9DC88D',
@@ -2684,13 +2684,34 @@ export default function App() {
 
   // ── LOAD from Firebase on mount ──────────────────────────
   useEffect(() => {
-    const docRef = doc(db, COLLECTION, DOC_ID);
-    // onSnapshot keeps data in sync across devices in real time
+    if (!firebaseOk || !db) {
+      // Firebase not configured - load from localStorage and continue
+      try {
+        const keys = ['insumos','recetas','packaging','ventasRealizadas','preciosGuardados','agendaProduccion','logoEmpresa','pedidos'];
+        keys.forEach(key => {
+          const stored = localStorage.getItem('esencia-'+key+'-v3');
+          if (stored) {
+            const data = JSON.parse(stored);
+            if (key === 'insumos')          setInsumos(data);
+            else if (key === 'recetas')          setRecetas(data);
+            else if (key === 'packaging')        setPackaging(data);
+            else if (key === 'ventasRealizadas') setVentasRealizadas(data);
+            else if (key === 'preciosGuardados') setPreciosGuardados(data);
+            else if (key === 'agendaProduccion') setAgendaProduccion(data);
+            else if (key === 'logoEmpresa')      setLogoEmpresa(data);
+            else if (key === 'pedidos')          setPedidos(data);
+          }
+        });
+      } catch(e) {}
+      isFirstLoad.current = false;
+      setDbLoaded(true);
+      return;
+    }
+    const docRef = doc(db, FB_COL, FB_DOC);
     const unsub = onSnapshot(docRef, (snap) => {
       if (snap.exists()) {
         const d = snap.data();
         if (isFirstLoad.current) {
-          // Only overwrite local state on first load
           if (d.insumos)          setInsumos(d.insumos);
           if (d.recetas)          setRecetas(d.recetas);
           if (d.packaging)        setPackaging(d.packaging);
@@ -2708,7 +2729,7 @@ export default function App() {
       setDbError(null);
     }, (err) => {
       console.error('Firebase error:', err);
-      setDbError('Sin conexion a Firebase. Verifica tu configuracion.');
+      setDbError('Error de conexion Firebase');
       setDbLoaded(true);
       isFirstLoad.current = false;
     });
@@ -2722,7 +2743,7 @@ export default function App() {
     clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(async () => {
       try {
-        await setDoc(doc(db, COLLECTION, DOC_ID), data, { merge: true });
+        await setDoc(doc(db, FB_COL, FB_DOC), data, { merge: true });
         setDbSyncing(false);
         setDbError(null);
       } catch (err) {
