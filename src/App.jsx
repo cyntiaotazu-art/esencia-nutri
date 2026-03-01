@@ -1,5 +1,30 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Plus, Trash2, Edit2, Package, ChefHat, ShoppingBag, DollarSign, Save, X, Calculator, TrendingUp, Download, Upload, Search, AlertTriangle, BarChart3, PlayCircle, ClipboardList, Clock, CheckCircle, Truck, User, Phone, MessageSquare, Bell, Tag } from 'lucide-react';
+import { initializeApp } from 'firebase/app';
+import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection } from 'firebase/firestore';
+
+// ==================== FIREBASE CONFIG ====================
+const firebaseConfig = {
+  apiKey: "AIzaSyClajRn43ZHSOUrRWA2SS3TwHPSszZIIlw",
+  authDomain: "esencia-nutri.firebaseapp.com",
+  projectId: "esencia-nutri",
+  storageBucket: "esencia-nutri.firebasestorage.app",
+  messagingSenderId: "805064998863",
+  appId: "1:805064998863:web:b29bdbbc8750f962f65cba",
+  measurementId: "G-SS34KDNMKB"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
+
+const firebaseApp = initializeApp(firebaseConfig);
+const db = getFirestore(firebaseApp);
+
+// ID fijo del documento - todos los dispositivos leen/escriben el mismo
+const DOC_ID = 'esencia-nutri-data';
+const COLLECTION = 'app-data';
+
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import jsPDF from 'jspdf';
 
@@ -2651,34 +2676,71 @@ export default function App() {
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
 
+  const [dbLoaded, setDbLoaded]     = useState(false);
+  const [dbSyncing, setDbSyncing]   = useState(false);
+  const [dbError, setDbError]       = useState(null);
+  const saveTimerRef                 = useRef(null);
+  const isFirstLoad                  = useRef(true);
+
+  // ── LOAD from Firebase on mount ──────────────────────────
   useEffect(() => {
-    try {
-      const keys = ['insumos', 'recetas', 'packaging', 'ventasRealizadas', 'preciosGuardados', 'agendaProduccion', 'logoEmpresa', 'pedidos'];
-      keys.forEach(key => {
-        const stored = localStorage.getItem(`esencia-${key}-v3`);
-        if (stored) {
-          const data = JSON.parse(stored);
-          if (key === 'insumos') setInsumos(data);
-          else if (key === 'recetas') setRecetas(data);
-          else if (key === 'packaging') setPackaging(data);
-          else if (key === 'ventasRealizadas') setVentasRealizadas(data);
-          else if (key === 'preciosGuardados') setPreciosGuardados(data);
-          else if (key === 'agendaProduccion') setAgendaProduccion(data);
-          else if (key === 'logoEmpresa') setLogoEmpresa(data);
-          else if (key === 'pedidos') setPedidos(data);
+    const docRef = doc(db, COLLECTION, DOC_ID);
+    // onSnapshot keeps data in sync across devices in real time
+    const unsub = onSnapshot(docRef, (snap) => {
+      if (snap.exists()) {
+        const d = snap.data();
+        if (isFirstLoad.current) {
+          // Only overwrite local state on first load
+          if (d.insumos)          setInsumos(d.insumos);
+          if (d.recetas)          setRecetas(d.recetas);
+          if (d.packaging)        setPackaging(d.packaging);
+          if (d.ventasRealizadas) setVentasRealizadas(d.ventasRealizadas);
+          if (d.preciosGuardados) setPreciosGuardados(d.preciosGuardados);
+          if (d.agendaProduccion) setAgendaProduccion(d.agendaProduccion);
+          if (d.logoEmpresa)      setLogoEmpresa(d.logoEmpresa);
+          if (d.pedidos)          setPedidos(d.pedidos);
+          isFirstLoad.current = false;
         }
-      });
-    } catch (error) { console.log('Iniciando vacío'); }
+      } else {
+        isFirstLoad.current = false;
+      }
+      setDbLoaded(true);
+      setDbError(null);
+    }, (err) => {
+      console.error('Firebase error:', err);
+      setDbError('Sin conexion a Firebase. Verifica tu configuracion.');
+      setDbLoaded(true);
+      isFirstLoad.current = false;
+    });
+    return () => unsub();
   }, []);
 
-  useEffect(() => { if (insumos.length >= 0) localStorage.setItem('esencia-insumos-v3', JSON.stringify(insumos)); }, [insumos]);
-  useEffect(() => { if (recetas.length >= 0) localStorage.setItem('esencia-recetas-v3', JSON.stringify(recetas)); }, [recetas]);
-  useEffect(() => { if (packaging.length >= 0) localStorage.setItem('esencia-packaging-v3', JSON.stringify(packaging)); }, [packaging]);
-  useEffect(() => { if (ventasRealizadas.length >= 0) localStorage.setItem('esencia-ventasRealizadas-v3', JSON.stringify(ventasRealizadas)); }, [ventasRealizadas]);
-  useEffect(() => { if (preciosGuardados.length >= 0) localStorage.setItem('esencia-preciosGuardados-v3', JSON.stringify(preciosGuardados)); }, [preciosGuardados]);
-  useEffect(() => { if (agendaProduccion.length >= 0) localStorage.setItem('esencia-agendaProduccion-v3', JSON.stringify(agendaProduccion)); }, [agendaProduccion]);
-  useEffect(() => { localStorage.setItem('esencia-logoEmpresa-v3', JSON.stringify(logoEmpresa)); }, [logoEmpresa]);
-  useEffect(() => { if (pedidos.length >= 0) localStorage.setItem('esencia-pedidos-v3', JSON.stringify(pedidos)); }, [pedidos]);
+  // ── SAVE to Firebase (debounced 1.5s to avoid hammering) ─
+  const saveToFirebase = useCallback((data) => {
+    if (!dbLoaded) return;
+    setDbSyncing(true);
+    clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(async () => {
+      try {
+        await setDoc(doc(db, COLLECTION, DOC_ID), data, { merge: true });
+        setDbSyncing(false);
+        setDbError(null);
+      } catch (err) {
+        console.error('Save error:', err);
+        setDbError('Error al guardar. Revisando conexion...');
+        setDbSyncing(false);
+      }
+    }, 1500);
+  }, [dbLoaded]);
+
+  useEffect(() => { if (dbLoaded && !isFirstLoad.current) saveToFirebase({ insumos }); }, [insumos, dbLoaded]);
+  useEffect(() => { if (dbLoaded && !isFirstLoad.current) saveToFirebase({ recetas }); }, [recetas, dbLoaded]);
+  useEffect(() => { if (dbLoaded && !isFirstLoad.current) saveToFirebase({ packaging }); }, [packaging, dbLoaded]);
+  useEffect(() => { if (dbLoaded && !isFirstLoad.current) saveToFirebase({ ventasRealizadas }); }, [ventasRealizadas, dbLoaded]);
+  useEffect(() => { if (dbLoaded && !isFirstLoad.current) saveToFirebase({ preciosGuardados }); }, [preciosGuardados, dbLoaded]);
+  useEffect(() => { if (dbLoaded && !isFirstLoad.current) saveToFirebase({ agendaProduccion }); }, [agendaProduccion, dbLoaded]);
+  useEffect(() => { if (dbLoaded && !isFirstLoad.current) saveToFirebase({ logoEmpresa }); }, [logoEmpresa, dbLoaded]);
+  useEffect(() => { if (dbLoaded && !isFirstLoad.current) saveToFirebase({ pedidos }); }, [pedidos, dbLoaded]);
 
   const handleLogoChange = (e) => {
     const file = e.target.files[0];
@@ -2706,6 +2768,25 @@ export default function App() {
     { id: 'pedidos', name: 'Pedidos', icon: ClipboardList }
   ];
 
+  if (!dbLoaded) {
+    return (
+      <div style={{ minHeight: '100vh', backgroundColor: theme.background, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '1.5rem' }}>
+        <div style={{ width: '72px', height: '72px', borderRadius: '16px', background: `linear-gradient(135deg, ${theme.primary}, ${theme.accent})`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 8px 32px rgba(90,124,67,0.3)' }}>
+          <ChefHat size={36} color="white" />
+        </div>
+        <div style={{ textAlign: 'center' }}>
+          <h2 style={{ color: theme.text, margin: '0 0 0.5rem', fontWeight: '700' }}>ESENCIA NUTRI</h2>
+          <p style={{ color: theme.textLight, margin: 0 }}>Conectando con la base de datos...</p>
+        </div>
+        <div style={{ width: '200px', height: '4px', backgroundColor: theme.border, borderRadius: '2px', overflow: 'hidden' }}>
+          <div style={{ height: '100%', backgroundColor: theme.primary, borderRadius: '2px', animation: 'loading-bar 1.5s ease-in-out infinite', width: '60%' }} />
+        </div>
+        {dbError && <p style={{ color: '#E57373', fontSize: '0.85rem', maxWidth: '320px', textAlign: 'center', padding: '0 1rem' }}>{dbError}<br/><span style={{ color: theme.textLight }}>Verifica tu configuracion de Firebase</span></p>}
+        <style>{`@keyframes loading-bar { 0% { transform: translateX(-100%) } 100% { transform: translateX(400%) } } @keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:0.4 } }`}</style>
+      </div>
+    );
+  }
+
   return (
     <div style={{ minHeight: '100vh', backgroundColor: theme.background }}>
       <header style={{ backgroundColor: theme.card, borderBottom: `2px solid ${theme.border}`, padding: '1.5rem 2rem', boxShadow: '0 2px 8px rgba(90,124,67,0.08)' }}>
@@ -2720,6 +2801,31 @@ export default function App() {
             </div>
           </div>
           
+          {/* Sync status indicator */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem' }}>
+            {dbError ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#E57373', backgroundColor: '#FFEBEE', padding: '0.4rem 0.8rem', borderRadius: '20px', border: '1px solid #FFCDD2' }}>
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#E57373', display: 'inline-block' }} />
+                Sin conexion
+              </div>
+            ) : !dbLoaded ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#FFB74D', backgroundColor: '#FFF8E1', padding: '0.4rem 0.8rem', borderRadius: '20px', border: '1px solid #FFE082' }}>
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#FFB74D', display: 'inline-block' }} />
+                Cargando...
+              </div>
+            ) : dbSyncing ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#64B5F6', backgroundColor: '#E3F2FD', padding: '0.4rem 0.8rem', borderRadius: '20px', border: '1px solid #BBDEFB' }}>
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#64B5F6', display: 'inline-block', animation: 'pulse 1s infinite' }} />
+                Guardando...
+              </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#66BB6A', backgroundColor: '#E8F5E9', padding: '0.4rem 0.8rem', borderRadius: '20px', border: '1px solid #C8E6C9' }}>
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#66BB6A', display: 'inline-block' }} />
+                Sincronizado
+              </div>
+            )}
+          </div>
+
           {/* Logo de empresa */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             {logoEmpresa ? (
